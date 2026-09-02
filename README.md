@@ -25,6 +25,8 @@ The workflow contains seven main stages:
 7. **S7 — Evidence-guided topology optimization and smoothing**  
    Repair supported gaps, suppress implausible loops/parallel artifacts, optimize topology, and smooth complete road chains while protecting junctions and U-turn geometry.
 
+The overall map-inference workflow was **primarily inspired by Biagioni and Eriksson (2012)**, particularly the use of trajectory-density evidence, skeleton/centerline extraction, and trajectory-supported topology refinement. This repository is **not a direct reimplementation** of that method: the present pipeline introduces activity-aware evidence weighting, U-turn/switchback semantics, constrained multi-trajectory centralization, directional KDE, evidence-guided topology repair, and final geometry smoothing for crowdsourced hiking trajectories in mountainous canyon environments.
+
 The principal final network is written by S7 under:
 
 ```text
@@ -154,7 +156,6 @@ The final S7 smoothing stage follows these principles:
 - U-turn/hairpin regions use a narrower protection corridor to avoid straightening the bend.
 - Strong Douglas-Peucker simplification is disabled by default for the final smoothed network.
 
-
 ## Tests
 
 Run the regression suite from the repository root:
@@ -169,6 +170,19 @@ The tests cover connectivity, U-turn semantics, cycle handling, raw-track eviden
 ## Reproducibility notes
 
 Results depend on trajectory density, sampling characteristics, projected CRS, study-area geometry, and parameter settings. Preserve the configuration used for each experiment. The configurable runner supports saving the effective run configuration to the output directory.
+
+## Methodological basis and references
+
+The following publications provide methodological foundations for specific parts of this implementation. Biagioni and Eriksson (2012) is the **primary reference for the overall map-inference pipeline concept** used in this project; the other references correspond to particular algorithmic components.
+
+1. **Biagioni, J., & Eriksson, J. (2012).** Map inference in the face of noise and disparity. *Proceedings of the 20th International Conference on Advances in Geographic Information Systems (SIGSPATIAL '12)*, 79–88. https://doi.org/10.1145/2424321.2424333  
+   Primary methodological reference for trajectory-based map inference, including density-based representation, centerline/skeleton extraction, and trajectory-supported topology/geometric refinement. The present implementation substantially extends this framework for mountainous hiking trajectories.
+
+2. **Newson, P., & Krumm, J. (2009).** Hidden Markov map matching through noise and sparseness. *Proceedings of the 17th ACM SIGSPATIAL International Conference on Advances in Geographic Information Systems*, 336–343. https://doi.org/10.1145/1653771.1653818  
+   Methodological basis for the HMM/Viterbi map-matching structure used in the S7 trajectory-evidence matcher. The implementation in this repository adds heading, evidence-source, and network-transition constraints and should therefore be regarded as an adapted implementation rather than a reproduction of the original algorithm.
+
+3. **Guo, Z., & Hall, R. W. (1989).** Parallel thinning with two-subiteration algorithms. *Communications of the ACM*, 32(3), 359–373. https://doi.org/10.1145/62065.62074  
+   Algorithmic basis of the binary thinning operation used through `skimage.morphology.thin` during skeleton extraction/refinement.
 
 ## Citation
 
@@ -189,6 +203,8 @@ This project is released under the MIT License. See `LICENSE`.
 ## 中文说明
 
 本仓库为众源徒步轨迹路网构建方法代码，包含 **S1–S7** 七个主要步骤：轨迹提取、轨迹清洗、活动区感知过滤、U 型弯语义约束的多轨迹引力集中、方向约束 KDE、道路骨架提取，以及证据驱动的拓扑优化与最终路网平滑。
+
+整体 map-inference 流程主要参考 **Biagioni and Eriksson (2012)**，尤其是轨迹证据/密度表达、骨架中心线提取以及轨迹证据支持的拓扑细化思想。在此基础上，本项目针对高山峡谷区众源徒步轨迹进一步加入活动区感知、U 型弯/连续回弯语义保护、多轨迹约束集中、方向约束 KDE、证据驱动拓扑修补与最终路网平滑等机制。
 
 代码已采用仓库相对路径组织默认输入输出。原始轨迹、研究区边界、DEM 和运行结果默认均不纳入 Git 版本控制。运行前请在 `configs/default_config.json` 或 Windows 配置界面中指定你自己的数据路径。
 
