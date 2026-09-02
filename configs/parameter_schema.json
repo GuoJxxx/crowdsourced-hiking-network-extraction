@@ -1,0 +1,4233 @@
+{
+  "version": "0.5",
+  "description": "保留已验证拓扑，并包含最终整条道路链平滑、路口固定、补断边同链平滑和 U 型弯保形约束。",
+  "stages": {
+    "S1": {
+      "title": "S1 KML轨迹提取",
+      "script": "S1_extract_kml.py",
+      "parameters": [
+        {
+          "dest": "recursive",
+          "option": "--recursive",
+          "options": [
+            "--recursive",
+            "--no-recursive"
+          ],
+          "default": true,
+          "help": "是否递归搜索子文件夹中的 KML",
+          "required": false,
+          "kind": "bool_optional",
+          "positive_option": "--recursive",
+          "negative_option": "--no-recursive"
+        },
+        {
+          "dest": "min_points",
+          "option": "--min-points",
+          "options": [
+            "--min-points"
+          ],
+          "default": 2,
+          "help": "一条 gx:Track 至少包含多少个有效坐标点才输出",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "no_combined",
+          "option": "--no-combined",
+          "options": [
+            "--no-combined"
+          ],
+          "default": false,
+          "help": "不生成 all_observed_points.csv，仅输出单轨迹 CSV 和清单",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        }
+      ]
+    },
+    "S2": {
+      "title": "S2 轨迹清洗",
+      "script": "S2_clean_tracks.py",
+      "parameters": [
+        {
+          "dest": "no_boundary",
+          "option": "--no-boundary",
+          "options": [
+            "--no-boundary"
+          ],
+          "default": false,
+          "help": "跳过范围裁剪",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "input_pattern",
+          "option": "--input-pattern",
+          "options": [
+            "--input-pattern"
+          ],
+          "default": "*__gxtrack.csv",
+          "help": "输入轨迹 CSV 文件名模式；如需处理测试文件可设为 *.csv",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "boundary_crs",
+          "option": "--boundary-crs",
+          "options": [
+            "--boundary-crs"
+          ],
+          "default": null,
+          "help": "边界缺少 .prj 时显式指定 CRS",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "metric_crs",
+          "option": "--metric-crs",
+          "options": [
+            "--metric-crs"
+          ],
+          "default": null,
+          "help": "--no-boundary 时手动指定米制度量坐标系，例如 EPSG:32647",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "boundary_buffer_m",
+          "option": "--boundary-buffer-m",
+          "options": [
+            "--boundary-buffer-m"
+          ],
+          "default": 0.0,
+          "help": "边界缓冲距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "boundary_context_points",
+          "option": "--boundary-context-points",
+          "options": [
+            "--boundary-context-points"
+          ],
+          "default": 0,
+          "help": "边界内连续段前后保留的外部点数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_points",
+          "option": "--min-points",
+          "options": [
+            "--min-points"
+          ],
+          "default": 5,
+          "help": "最终子段最少点数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_length_m",
+          "option": "--min-length-m",
+          "options": [
+            "--min-length-m"
+          ],
+          "default": 20.0,
+          "help": "最终子段最小长度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "max_time_gap_s",
+          "option": "--max-time-gap-s",
+          "options": [
+            "--max-time-gap-s"
+          ],
+          "default": 1800.0,
+          "help": "时间硬拆分阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hard_step_m",
+          "option": "--hard-step-m",
+          "options": [
+            "--hard-step-m"
+          ],
+          "default": 300.0,
+          "help": "相邻距离绝对拆分阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "adaptive_step_floor_m",
+          "option": "--adaptive-step-floor-m",
+          "options": [
+            "--adaptive-step-floor-m"
+          ],
+          "default": 80.0,
+          "help": "局部自适应距离断点最低候选步长",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_speed_mps",
+          "option": "--hiking-speed-mps",
+          "options": [
+            "--hiking-speed-mps"
+          ],
+          "default": 5.0,
+          "help": "徒步高速标记阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_hard_speed_mps",
+          "option": "--hiking-hard-speed-mps",
+          "options": [
+            "--hiking-hard-speed-mps"
+          ],
+          "default": 8.0,
+          "help": "单边明显不符合徒步的速度阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_median_max_mps",
+          "option": "--hiking-median-max-mps",
+          "options": [
+            "--hiking-median-max-mps"
+          ],
+          "default": 3.5,
+          "help": "最终徒步段中位速度上限",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_p90_max_mps",
+          "option": "--hiking-p90-max-mps",
+          "options": [
+            "--hiking-p90-max-mps"
+          ],
+          "default": 5.0,
+          "help": "最终徒步段 P90 速度上限",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_high_fraction_max",
+          "option": "--hiking-high-fraction-max",
+          "options": [
+            "--hiking-high-fraction-max"
+          ],
+          "default": 0.1,
+          "help": "最终徒步段高速边比例上限",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_min_valid_fraction",
+          "option": "--hiking-min-valid-fraction",
+          "options": [
+            "--hiking-min-valid-fraction"
+          ],
+          "default": 0.3,
+          "help": "按速度删除整段所需的最小有效时间边比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "spike_zero_dt_leg_m",
+          "option": "--spike-zero-dt-leg-m",
+          "options": [
+            "--spike-zero-dt-leg-m"
+          ],
+          "default": 20.0,
+          "help": "同秒跳点候选边最小距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "elevation_spike_min_m",
+          "option": "--elevation-spike-min-m",
+          "options": [
+            "--elevation-spike-min-m"
+          ],
+          "default": 8.0,
+          "help": "高程孤立尖峰最小残差",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "vertical_speed_mps",
+          "option": "--vertical-speed-mps",
+          "options": [
+            "--vertical-speed-mps"
+          ],
+          "default": 2.0,
+          "help": "高程异常垂直速度辅助阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "elevation_grade_hard",
+          "option": "--elevation-grade-hard",
+          "options": [
+            "--elevation-grade-hard"
+          ],
+          "default": 2.0,
+          "help": "高程异常表观坡度辅助阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "near_same_xy_jump_m",
+          "option": "--near-same-xy-jump-m",
+          "options": [
+            "--near-same-xy-jump-m"
+          ],
+          "default": 10.0,
+          "help": "近同址高程跃迁阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "elevation_short_gap_points",
+          "option": "--elevation-short-gap-points",
+          "options": [
+            "--elevation-short-gap-points"
+          ],
+          "default": 5,
+          "help": "沿轨插值允许的连续缺失高程点数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dem_trust_max_grade",
+          "option": "--dem-trust-max-grade",
+          "options": [
+            "--dem-trust-max-grade"
+          ],
+          "default": 1.0,
+          "help": "DEM 自动修复最大局部坡度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dem_bias_min_samples",
+          "option": "--dem-bias-min-samples",
+          "options": [
+            "--dem-bias-min-samples"
+          ],
+          "default": 15,
+          "help": "估计 GPS-DEM 垂直偏差所需最少样本",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "no_dem_fill",
+          "option": "--no-dem-fill",
+          "options": [
+            "--no-dem-fill"
+          ],
+          "default": false,
+          "help": "不使用 DEM 填补剩余缺失高程",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "no_gpkg",
+          "option": "--no-gpkg",
+          "options": [
+            "--no-gpkg"
+          ],
+          "default": false,
+          "help": "不输出 GPKG",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        }
+      ]
+    },
+    "S3": {
+      "title": "S3 活动区识别",
+      "script": "S3_activity_zone_filter.py",
+      "parameters": [
+        {
+          "dest": "cell_size_m",
+          "option": "--cell-size-m",
+          "options": [
+            "--cell-size-m"
+          ],
+          "default": 10.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "direction_bins",
+          "option": "--direction-bins",
+          "options": [
+            "--direction-bins"
+          ],
+          "default": 12,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "local_window_points",
+          "option": "--local-window-points",
+          "options": [
+            "--local-window-points"
+          ],
+          "default": 5,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_cell_points",
+          "option": "--min-cell-points",
+          "options": [
+            "--min-cell-points"
+          ],
+          "default": 20,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_cell_tracks",
+          "option": "--min-cell-tracks",
+          "options": [
+            "--min-cell-tracks"
+          ],
+          "default": 3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "entropy_min",
+          "option": "--entropy-min",
+          "options": [
+            "--entropy-min"
+          ],
+          "default": 0.62,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "endpoint_fraction_min",
+          "option": "--endpoint-fraction-min",
+          "options": [
+            "--endpoint-fraction-min"
+          ],
+          "default": 0.08,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "low_efficiency_fraction_min",
+          "option": "--low-efficiency-fraction-min",
+          "options": [
+            "--low-efficiency-fraction-min"
+          ],
+          "default": 0.35,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "low_speed_fraction_min",
+          "option": "--low-speed-fraction-min",
+          "options": [
+            "--low-speed-fraction-min"
+          ],
+          "default": 0.2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "stable_dominant_fraction_min",
+          "option": "--stable-dominant-fraction-min",
+          "options": [
+            "--stable-dominant-fraction-min"
+          ],
+          "default": 0.55,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_track_min",
+          "option": "--curve-track-min",
+          "options": [
+            "--curve-track-min"
+          ],
+          "default": 3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "curve_elongation_min",
+          "option": "--curve-elongation-min",
+          "options": [
+            "--curve-elongation-min"
+          ],
+          "default": 0.48,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_efficiency_min",
+          "option": "--curve-efficiency-min",
+          "options": [
+            "--curve-efficiency-min"
+          ],
+          "default": 0.3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_endpoint_fraction_max",
+          "option": "--curve-endpoint-fraction-max",
+          "options": [
+            "--curve-endpoint-fraction-max"
+          ],
+          "default": 0.15,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_low_speed_fraction_max",
+          "option": "--curve-low-speed-fraction-max",
+          "options": [
+            "--curve-low-speed-fraction-max"
+          ],
+          "default": 0.3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_bridge_radius_cells",
+          "option": "--curve-bridge-radius-cells",
+          "options": [
+            "--curve-bridge-radius-cells"
+          ],
+          "default": 2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "curve_bridge_min_stable_neighbors",
+          "option": "--curve-bridge-min-stable-neighbors",
+          "options": [
+            "--curve-bridge-min-stable-neighbors"
+          ],
+          "default": 2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "curve_corridor_weight",
+          "option": "--curve-corridor-weight",
+          "options": [
+            "--curve-corridor-weight"
+          ],
+          "default": 0.9,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "internal_activity_weight",
+          "option": "--internal-activity-weight",
+          "options": [
+            "--internal-activity-weight"
+          ],
+          "default": 0.1,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "boundary_activity_weight",
+          "option": "--boundary-activity-weight",
+          "options": [
+            "--boundary-activity-weight"
+          ],
+          "default": 0.65,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "coherent_passage_weight",
+          "option": "--coherent-passage-weight",
+          "options": [
+            "--coherent-passage-weight"
+          ],
+          "default": 0.85,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "mainroad_min_weight",
+          "option": "--mainroad-min-weight",
+          "options": [
+            "--mainroad-min-weight"
+          ],
+          "default": 0.35,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_zone_cells",
+          "option": "--min-zone-cells",
+          "options": [
+            "--min-zone-cells"
+          ],
+          "default": 2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "max_output_link_m",
+          "option": "--max-output-link-m",
+          "options": [
+            "--max-output-link-m"
+          ],
+          "default": 25.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_size_m",
+          "option": "--tile-size-m",
+          "options": [
+            "--tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "no_gpkg",
+          "option": "--no-gpkg",
+          "options": [
+            "--no-gpkg"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "clear_output",
+          "option": "--clear-output",
+          "options": [
+            "--clear-output"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "activity_corridor_min_tracks",
+          "option": "--activity-corridor-min-tracks",
+          "options": [
+            "--activity-corridor-min-tracks"
+          ],
+          "default": 3,
+          "help": "活动区穿越主通道最少独立原始轨迹数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "activity_corridor_gate_tolerance_m",
+          "option": "--activity-corridor-gate-tolerance-m",
+          "options": [
+            "--activity-corridor-gate-tolerance-m"
+          ],
+          "default": 10.0,
+          "help": "活动区穿越通道门点聚类容差",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_corridor_max_axis_spread_deg",
+          "option": "--activity-corridor-max-axis-spread-deg",
+          "options": [
+            "--activity-corridor-max-axis-spread-deg"
+          ],
+          "default": 30.0,
+          "help": "活动区穿越通道最大轴向离散角",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_corridor_min_efficiency",
+          "option": "--activity-corridor-min-efficiency",
+          "options": [
+            "--activity-corridor-min-efficiency"
+          ],
+          "default": 0.55,
+          "help": "活动区穿越通道最小门点路径效率",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_corridor_weight",
+          "option": "--activity-corridor-weight",
+          "options": [
+            "--activity-corridor-weight"
+          ],
+          "default": 0.95,
+          "help": "结构验证通过的活动区穿越主通道道路权重",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_backbone_min_tracks",
+          "option": "--activity-backbone-min-tracks",
+          "options": [
+            "--activity-backbone-min-tracks"
+          ],
+          "default": 3,
+          "help": "活动区主骨架至少需要的独立原始轨迹贡献数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "activity_backbone_gate_cluster_m",
+          "option": "--activity-backbone-gate-cluster-m",
+          "options": [
+            "--activity-backbone-gate-cluster-m"
+          ],
+          "default": 15.0,
+          "help": "活动区主骨架入口/出口聚类最大尺度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_backbone_weight",
+          "option": "--activity-backbone-weight",
+          "options": [
+            "--activity-backbone-weight"
+          ],
+          "default": 1.0,
+          "help": "活动区证据支持主骨架赋予的道路权重",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_backbone_promote_radius_m",
+          "option": "--activity-backbone-promote-radius-m",
+          "options": [
+            "--activity-backbone-promote-radius-m"
+          ],
+          "default": 5.0,
+          "help": "活动区主骨架周围提升为道路候选的原始轨迹半径",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        }
+      ]
+    },
+    "S4": {
+      "title": "S4 U形弯共识引力",
+      "script": "S4_uturn_consensus_gravity.py",
+      "parameters": [
+        {
+          "dest": "projected_crs",
+          "option": "--projected-crs",
+          "options": [
+            "--projected-crs"
+          ],
+          "default": "auto",
+          "help": "默认继承输入 metric_crs；显式指定不一致时直接报错",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "iterations",
+          "option": "--iterations",
+          "options": [
+            "--iterations"
+          ],
+          "default": 4,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "search_radius_m",
+          "option": "--search-radius-m",
+          "options": [
+            "--search-radius-m"
+          ],
+          "default": 15.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_support_tracks",
+          "option": "--min-support-tracks",
+          "options": [
+            "--min-support-tracks"
+          ],
+          "default": 2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_road_weight",
+          "option": "--min-road-weight",
+          "options": [
+            "--min-road-weight"
+          ],
+          "default": 0.35,
+          "help": "复核 S3 road_candidate_points.csv 的最低道路权重；不满足时直接报错，避免活动区轨迹重新进入引力",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "edge_support_radius_m",
+          "option": "--edge-support-radius-m",
+          "options": [
+            "--edge-support-radius-m"
+          ],
+          "default": 8.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "edge_min_supported_fraction",
+          "option": "--edge-min-supported-fraction",
+          "options": [
+            "--edge-min-supported-fraction"
+          ],
+          "default": 0.45,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_cluster_tracks",
+          "option": "--uturn-min-cluster-tracks",
+          "options": [
+            "--uturn-min-cluster-tracks"
+          ],
+          "default": 3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "uturn_anchor_max_move_m",
+          "option": "--uturn-anchor-max-move-m",
+          "options": [
+            "--uturn-anchor-max-move-m"
+          ],
+          "default": 18.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_protection_buffer_m",
+          "option": "--uturn-protection-buffer-m",
+          "options": [
+            "--uturn-protection-buffer-m"
+          ],
+          "default": 8.0,
+          "help": "确认U型弯结构保护缓冲半径；默认8m以减少过度保护",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "gravity_tile_size_m",
+          "option": "--gravity-tile-size-m",
+          "options": [
+            "--gravity-tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "引力查询物理瓦片边长，建议与 KDE 的 --tile-size-m 保持一致",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "gravity_tile_origin_x",
+          "option": "--gravity-tile-origin-x",
+          "options": [
+            "--gravity-tile-origin-x"
+          ],
+          "default": null,
+          "help": "可选：瓦片左下角原点 X；若需严格对应 KDE，可填 KDE report 中 bounds[0]",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "gravity_tile_origin_y",
+          "option": "--gravity-tile-origin-y",
+          "options": [
+            "--gravity-tile-origin-y"
+          ],
+          "default": null,
+          "help": "可选：瓦片左下角原点 Y；若需严格对应 KDE，可填 KDE report 中 bounds[1]",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "gravity_query_batch_size",
+          "option": "--gravity-query-batch-size",
+          "options": [
+            "--gravity-query-batch-size"
+          ],
+          "default": 50000,
+          "help": "单个瓦片内仍过密时的最大查询点数批大小",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "no_gpkg",
+          "option": "--no-gpkg",
+          "options": [
+            "--no-gpkg"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "uturn_min_distinct_original_tracks",
+          "option": "--uturn-min-distinct-original-tracks",
+          "options": [
+            "--uturn-min-distinct-original-tracks"
+          ],
+          "default": 3,
+          "help": "U型弯结构验证最少独立原始贡献轨迹数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "uturn_max_leg_axis_difference_deg",
+          "option": "--uturn-max-leg-axis-difference-deg",
+          "options": [
+            "--uturn-max-leg-axis-difference-deg"
+          ],
+          "default": 25.0,
+          "help": "U型弯两腿最大无向轴夹角",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_opposite_direction_score",
+          "option": "--uturn-min-opposite-direction-score",
+          "options": [
+            "--uturn-min-opposite-direction-score"
+          ],
+          "default": 0.7,
+          "help": "U型弯两腿反向运动最小得分",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_apex_turn_concentration",
+          "option": "--uturn-min-apex-turn-concentration",
+          "options": [
+            "--uturn-min-apex-turn-concentration"
+          ],
+          "default": 0.5,
+          "help": "U型弯转向集中在apex附近的最小比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_leg_separation_m",
+          "option": "--uturn-min-leg-separation-m",
+          "options": [
+            "--uturn-min-leg-separation-m"
+          ],
+          "default": 4.0,
+          "help": "U型弯两腿最小合理间距",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_max_leg_separation_m",
+          "option": "--uturn-max-leg-separation-m",
+          "options": [
+            "--uturn-max-leg-separation-m"
+          ],
+          "default": 35.0,
+          "help": "U型弯两腿最大合理间距",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_leg_straightness",
+          "option": "--uturn-min-leg-straightness",
+          "options": [
+            "--uturn-min-leg-straightness"
+          ],
+          "default": 0.86,
+          "help": "U型弯两条腿的最小直线性，抑制普通大弯/环路误判",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_leg_overlap_ratio",
+          "option": "--uturn-min-leg-overlap-ratio",
+          "options": [
+            "--uturn-min-leg-overlap-ratio"
+          ],
+          "default": 0.45,
+          "help": "U型弯两条近平行腿的最小纵向重叠比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_max_secondary_turn_peak_ratio",
+          "option": "--uturn-max-secondary-turn-peak-ratio",
+          "options": [
+            "--uturn-max-secondary-turn-peak-ratio"
+          ],
+          "default": 0.6,
+          "help": "次级转向峰相对主apex峰的最大比例，要求单一主apex",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_activity_min_tracks",
+          "option": "--uturn-activity-min-tracks",
+          "options": [
+            "--uturn-activity-min-tracks"
+          ],
+          "default": 4,
+          "help": "活动区内确认U型弯所需最少不同原始轨迹数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "uturn_activity_min_apex_concentration",
+          "option": "--uturn-activity-min-apex-concentration",
+          "options": [
+            "--uturn-activity-min-apex-concentration"
+          ],
+          "default": 0.68,
+          "help": "活动区内U型弯所需最小apex转向集中度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_activity_max_secondary_peak_ratio",
+          "option": "--uturn-activity-max-secondary-peak-ratio",
+          "options": [
+            "--uturn-activity-max-secondary-peak-ratio"
+          ],
+          "default": 0.5,
+          "help": "活动区内U型弯允许的最大次级转向峰比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_activity_min_leg_straightness",
+          "option": "--uturn-activity-min-leg-straightness",
+          "options": [
+            "--uturn-activity-min-leg-straightness"
+          ],
+          "default": 0.9,
+          "help": "活动区内U型弯两腿更严格的最小直线性",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_activity_min_leg_overlap_ratio",
+          "option": "--uturn-activity-min-leg-overlap-ratio",
+          "options": [
+            "--uturn-activity-min-leg-overlap-ratio"
+          ],
+          "default": 0.55,
+          "help": "活动区内U型弯两腿更严格的最小纵向重叠比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        }
+      ]
+    },
+    "S5": {
+      "title": "S5 方向各向异性KDE",
+      "script": "S5_directional_kde.py",
+      "parameters": [
+        {
+          "dest": "cell_size_m",
+          "option": "--cell-size-m",
+          "options": [
+            "--cell-size-m"
+          ],
+          "default": 2.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "sigma_along_m",
+          "option": "--sigma-along-m",
+          "options": [
+            "--sigma-along-m"
+          ],
+          "default": 4.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "sigma_cross_m",
+          "option": "--sigma-cross-m",
+          "options": [
+            "--sigma-cross-m"
+          ],
+          "default": 1.5,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "orientation_bins",
+          "option": "--orientation-bins",
+          "options": [
+            "--orientation-bins"
+          ],
+          "default": 16,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "max_link_m",
+          "option": "--max-link-m",
+          "options": [
+            "--max-link-m"
+          ],
+          "default": 25.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_road_weight",
+          "option": "--min-road-weight",
+          "options": [
+            "--min-road-weight"
+          ],
+          "default": 0.35,
+          "help": "仅使用 road_extraction_weight 不低于该值的主道路候选点",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "require_mainroad_candidate",
+          "option": "--require-mainroad-candidate",
+          "options": [
+            "--require-mainroad-candidate"
+          ],
+          "default": false,
+          "help": "若输入含 mainroad_candidate 字段，则同时要求其为 True",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "tile_size_m",
+          "option": "--tile-size-m",
+          "options": [
+            "--tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "KDE 物理瓦片边长，单位 m；默认 560 m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_origin_x",
+          "option": "--tile-origin-x",
+          "options": [
+            "--tile-origin-x"
+          ],
+          "default": null,
+          "help": "可选：KDE 瓦片左下角原点 X；用于与引力瓦片对齐",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_origin_y",
+          "option": "--tile-origin-y",
+          "options": [
+            "--tile-origin-y"
+          ],
+          "default": null,
+          "help": "可选：KDE 瓦片左下角原点 Y；用于与引力瓦片对齐",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_size",
+          "option": "--tile-size",
+          "options": [
+            "--tile-size"
+          ],
+          "default": 0,
+          "help": "可选像素瓦片大小；>0 时覆盖 --tile-size-m，保留用于兼容旧命令",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "distance_max_m",
+          "option": "--distance-max-m",
+          "options": [
+            "--distance-max-m"
+          ],
+          "default": 10.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "block_size",
+          "option": "--block-size",
+          "options": [
+            "--block-size"
+          ],
+          "default": 256,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "all_touched",
+          "option": "--all-touched",
+          "options": [
+            "--all-touched"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "no_clear_output",
+          "option": "--no-clear-output",
+          "options": [
+            "--no-clear-output"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        }
+      ]
+    },
+    "S6": {
+      "title": "S6 路径锁定骨架",
+      "script": "S6_route_locked_skeleton.py",
+      "parameters": [
+        {
+          "dest": "activity_layer",
+          "option": "--activity-layer",
+          "options": [
+            "--activity-layer"
+          ],
+          "default": "activity_suppression_zones",
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "protected_activity_layer",
+          "option": "--protected-activity-layer",
+          "options": [
+            "--protected-activity-layer"
+          ],
+          "default": "protected_road_corridors",
+          "help": "S3 v2 输出的稳定/曲线道路保护走廊图层",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "protected_corridor_buffer_m",
+          "option": "--protected-corridor-buffer-m",
+          "options": [
+            "--protected-corridor-buffer-m"
+          ],
+          "default": 0.0,
+          "help": "保护走廊额外缓冲；默认 0，必要时可设为 1-2 m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_zone_pad_m",
+          "option": "--activity-zone-pad-m",
+          "options": [
+            "--activity-zone-pad-m"
+          ],
+          "default": 0.0,
+          "help": "筛选局部活动区要素时的额外查询缓冲",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_suppression_buffer_m",
+          "option": "--activity-suppression-buffer-m",
+          "options": [
+            "--activity-suppression-buffer-m"
+          ],
+          "default": 0.0,
+          "help": "对活动抑制区几何额外缓冲；默认 0，避免误伤入口道路",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_road_weight",
+          "option": "--min-road-weight",
+          "options": [
+            "--min-road-weight"
+          ],
+          "default": 0.35,
+          "help": "当 gravity_points 未含 gravity_kde_include 时使用的最低道路权重",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_size_m",
+          "option": "--tile-size-m",
+          "options": [
+            "--tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "核心瓦片边长，单位 m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "halo_m",
+          "option": "--halo-m",
+          "options": [
+            "--halo-m"
+          ],
+          "default": null,
+          "help": "瓦片外扩缓冲，默认按连接参数自动估计",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "local_vector_pad_m",
+          "option": "--local-vector-pad-m",
+          "options": [
+            "--local-vector-pad-m"
+          ],
+          "default": 20.0,
+          "help": "筛选局部点/共识线时额外外扩距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "progress_every",
+          "option": "--progress-every",
+          "options": [
+            "--progress-every"
+          ],
+          "default": 50,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "strict_corridor_m",
+          "option": "--strict-corridor-m",
+          "options": [
+            "--strict-corridor-m"
+          ],
+          "default": 3.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "relaxed_corridor_m",
+          "option": "--relaxed-corridor-m",
+          "options": [
+            "--relaxed-corridor-m"
+          ],
+          "default": 5.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_min_tracks",
+          "option": "--support-rescue-min-tracks",
+          "options": [
+            "--support-rescue-min-tracks"
+          ],
+          "default": 2,
+          "help": "单像元精确支持救援所需最少独立轨迹数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_max_distance_m",
+          "option": "--support-rescue-max-distance-m",
+          "options": [
+            "--support-rescue-max-distance-m"
+          ],
+          "default": 5.0,
+          "help": "救援像元距原始轨迹的最大距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_kde_min_level",
+          "option": "--support-rescue-kde-min-level",
+          "options": [
+            "--support-rescue-kde-min-level"
+          ],
+          "default": 1,
+          "help": "救援像元最低缩放 KDE 等级",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_dilation",
+          "option": "--support-rescue-dilation",
+          "options": [
+            "--support-rescue-dilation"
+          ],
+          "default": 1,
+          "help": "救援骨架种子膨胀次数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_min_component_pixels",
+          "option": "--support-rescue-min-component-pixels",
+          "options": [
+            "--support-rescue-min-component-pixels"
+          ],
+          "default": 6,
+          "help": "救援线最小连通像元数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dense_rescue_radius_m",
+          "option": "--dense-rescue-radius-m",
+          "options": [
+            "--dense-rescue-radius-m"
+          ],
+          "default": 6.0,
+          "help": "计算邻域聚集轨迹证据的半径",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dense_rescue_support_sum_min",
+          "option": "--dense-rescue-support-sum-min",
+          "options": [
+            "--dense-rescue-support-sum-min"
+          ],
+          "default": 10.0,
+          "help": "邻域 support 总量下限",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dense_rescue_occupied_pixels_min",
+          "option": "--dense-rescue-occupied-pixels-min",
+          "options": [
+            "--dense-rescue-occupied-pixels-min"
+          ],
+          "default": 6.0,
+          "help": "邻域内 support>0 的最少像元数",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dense_rescue_near_support_min",
+          "option": "--dense-rescue-near-support-min",
+          "options": [
+            "--dense-rescue-near-support-min"
+          ],
+          "default": 1,
+          "help": "邻域最大 support 下限；1 可识别横向分散轨迹",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dense_rescue_closing_m",
+          "option": "--dense-rescue-closing-m",
+          "options": [
+            "--dense-rescue-closing-m"
+          ],
+          "default": 4.0,
+          "help": "聚集证据闭运算距离，用于连接轨迹束内部小空洞",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dense_rescue_connection_m",
+          "option": "--dense-rescue-connection-m",
+          "options": [
+            "--dense-rescue-connection-m"
+          ],
+          "default": 8.0,
+          "help": "救援分量与已有主骨架连接的最大距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "lock_clear_buffer_m",
+          "option": "--lock-clear-buffer-m",
+          "options": [
+            "--lock-clear-buffer-m"
+          ],
+          "default": 10.0,
+          "help": "仅在锁定 medoid 路径周围该距离内清除旧骨架；避免整块 lock zone 误删真实道路",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "bridge_merge_support_min",
+          "option": "--bridge-merge-support-min",
+          "options": [
+            "--bridge-merge-support-min"
+          ],
+          "default": 3,
+          "help": "低阈值区域连接多个已有分量时，允许合并所需的最小独立轨迹支持数；U形弯误合并时调大",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "bridge_evidence_dilation",
+          "option": "--bridge-evidence-dilation",
+          "options": [
+            "--bridge-evidence-dilation"
+          ],
+          "default": 0,
+          "help": "合并证据 support 栅格膨胀次数；0 最保守，可避免相邻回弯两翼被误合并",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "route_corridor_m",
+          "option": "--route-corridor-m",
+          "options": [
+            "--route-corridor-m"
+          ],
+          "default": 4.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_pair_tracks",
+          "option": "--min-pair-tracks",
+          "options": [
+            "--min-pair-tracks"
+          ],
+          "default": 3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "pair_buffer_m",
+          "option": "--pair-buffer-m",
+          "options": [
+            "--pair-buffer-m"
+          ],
+          "default": 6.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "endpoint_connector_max_along_m",
+          "option": "--endpoint-connector-max-along-m",
+          "options": [
+            "--endpoint-connector-max-along-m"
+          ],
+          "default": 15.0,
+          "help": "默认15m；锁定路线端点沿同一实测轨迹向外连接主骨架的最大距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "endpoint_connector_snap_m",
+          "option": "--endpoint-connector-snap-m",
+          "options": [
+            "--endpoint-connector-snap-m"
+          ],
+          "default": 6.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_kde_ridge_refine",
+          "option": "--disable-kde-ridge-refine",
+          "options": [
+            "--disable-kde-ridge-refine"
+          ],
+          "default": false,
+          "help": "关闭global主骨架KDE ridge吸附",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true,
+          "value_type": "bool"
+        },
+        {
+          "dest": "kde_ridge_search_radius_m",
+          "option": "--kde-ridge-search-radius-m",
+          "options": [
+            "--kde-ridge-search-radius-m"
+          ],
+          "default": 4.0,
+          "help": "global主骨架沿法线搜索局部KDE脊线的半径",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_min_chain_m",
+          "option": "--kde-ridge-min-chain-m",
+          "options": [
+            "--kde-ridge-min-chain-m"
+          ],
+          "default": 16.0,
+          "help": "仅优化不短于该长度的degree-2道路链",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_min_local_ratio",
+          "option": "--kde-ridge-min-local-ratio",
+          "options": [
+            "--kde-ridge-min-local-ratio"
+          ],
+          "default": 0.2,
+          "help": "ridge候选相对局部KDE最大值的最低比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_support_weight",
+          "option": "--kde-ridge-support-weight",
+          "options": [
+            "--kde-ridge-support-weight"
+          ],
+          "default": 0.25,
+          "help": "ridge动态规划中的support权重",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_distance_weight",
+          "option": "--kde-ridge-distance-weight",
+          "options": [
+            "--kde-ridge-distance-weight"
+          ],
+          "default": 0.25,
+          "help": "ridge动态规划中的距轨迹证据权重",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_offset_penalty",
+          "option": "--kde-ridge-offset-penalty",
+          "options": [
+            "--kde-ridge-offset-penalty"
+          ],
+          "default": 0.08,
+          "help": "横向偏移惩罚",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_transition_penalty",
+          "option": "--kde-ridge-transition-penalty",
+          "options": [
+            "--kde-ridge-transition-penalty"
+          ],
+          "default": 0.16,
+          "help": "相邻采样点横向偏移变化惩罚，越大越平滑",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_min_mean_kde_gain",
+          "option": "--kde-ridge-min-mean-kde-gain",
+          "options": [
+            "--kde-ridge-min-mean-kde-gain"
+          ],
+          "default": 0.03,
+          "help": "整链平均KDE至少提升该比例才接受移动",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_max_distance_m",
+          "option": "--kde-ridge-max-distance-m",
+          "options": [
+            "--kde-ridge-max-distance-m"
+          ],
+          "default": 6.0,
+          "help": "ridge候选距原轨迹distance栅格最大距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_min_local_ridge_ratio",
+          "option": "--support-rescue-min-local-ridge-ratio",
+          "options": [
+            "--support-rescue-min-local-ridge-ratio"
+          ],
+          "default": 0.45,
+          "help": "rescue像元相对自身局部KDE峰值最低比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_ridge_radius_m",
+          "option": "--support-rescue-ridge-radius-m",
+          "options": [
+            "--support-rescue-ridge-radius-m"
+          ],
+          "default": 6.0,
+          "help": "rescue局部KDE峰值计算半径",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_max_primary_attachments",
+          "option": "--support-rescue-max-primary-attachments",
+          "options": [
+            "--support-rescue-max-primary-attachments"
+          ],
+          "default": 1,
+          "help": "普通rescue分量最多允许的primary附着次数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_bridge_min_support",
+          "option": "--support-rescue-bridge-min-support",
+          "options": [
+            "--support-rescue-bridge-min-support"
+          ],
+          "default": 3,
+          "help": "多附着rescue作为真实桥保留所需最小support",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_bridge_min_support_fraction",
+          "option": "--support-rescue-bridge-min-support-fraction",
+          "options": [
+            "--support-rescue-bridge-min-support-fraction"
+          ],
+          "default": 0.5,
+          "help": "多附着rescue中强support像元最低比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_bridge_min_ridge_ratio",
+          "option": "--support-rescue-bridge-min-ridge-ratio",
+          "options": [
+            "--support-rescue-bridge-min-ridge-ratio"
+          ],
+          "default": 0.65,
+          "help": "多附着rescue保留所需中位局部KDE ridge比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_endpoint_connector_cycle_filter",
+          "option": "--disable-endpoint-connector-cycle-filter",
+          "options": [
+            "--disable-endpoint-connector-cycle-filter"
+          ],
+          "default": false,
+          "help": "关闭endpoint connector写入前闭环风险过滤",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true,
+          "value_type": "bool"
+        },
+        {
+          "dest": "disable_auxiliary_leaf_only",
+          "option": "--disable-auxiliary-leaf-only",
+          "options": [
+            "--disable-auxiliary-leaf-only"
+          ],
+          "default": false,
+          "help": "关闭single-track auxiliary的leaf-only限制",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true,
+          "value_type": "bool"
+        },
+        {
+          "dest": "auxiliary_max_primary_attachments",
+          "option": "--auxiliary-max-primary-attachments",
+          "options": [
+            "--auxiliary-max-primary-attachments"
+          ],
+          "default": 1,
+          "help": "auxiliary分量最多允许的primary附着次数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "auxiliary_max_primary_contact_fraction",
+          "option": "--auxiliary-max-primary-contact-fraction",
+          "options": [
+            "--auxiliary-max-primary-contact-fraction"
+          ],
+          "default": 0.25,
+          "help": "auxiliary沿primary贴行接触比例超过该值时视为重复侧线并删除",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "threshold_mode",
+          "option": "--threshold-mode",
+          "options": [
+            "--threshold-mode"
+          ],
+          "default": "active_percentile",
+          "help": "float KDE 转 0-1024 阈值等级的 reference 计算方式",
+          "required": false,
+          "kind": "choice",
+          "choices": [
+            "active_percentile",
+            "legacy_global_max"
+          ]
+        },
+        {
+          "dest": "threshold_percentile",
+          "option": "--threshold-percentile",
+          "options": [
+            "--threshold-percentile"
+          ],
+          "default": 99.5,
+          "help": "active_percentile 模式使用的分位数",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "threshold_sample_max",
+          "option": "--threshold-sample-max",
+          "options": [
+            "--threshold-sample-max"
+          ],
+          "default": 2000000,
+          "help": "计算分位数的最大流式抽样数量",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "threshold_reference",
+          "option": "--threshold-reference",
+          "options": [
+            "--threshold-reference"
+          ],
+          "default": null,
+          "help": "手动指定 float KDE reference；设置后覆盖自动分位数",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "thresholds",
+          "option": "--thresholds",
+          "options": [
+            "--thresholds"
+          ],
+          "default": null,
+          "help": "逗号分隔阈值等级，例如 1024,512,256,128,64,32,16,8,4",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "legacy_thresholds",
+          "option": "--legacy-thresholds",
+          "options": [
+            "--legacy-thresholds"
+          ],
+          "default": false,
+          "help": "使用旧版阈值 512,256,...,4",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "activity_through_layer",
+          "option": "--activity-through-layer",
+          "options": [
+            "--activity-through-layer"
+          ],
+          "default": "activity_zone_backbones",
+          "help": "S3活动区证据支持主骨架图层",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        }
+      ]
+    },
+    "S7": {
+      "title": "S7 路网清理与矢量化",
+      "script": "S7_network_cleanup.py",
+      "parameters": [
+        {
+          "dest": "activity_layer",
+          "option": "--activity-layer",
+          "options": [
+            "--activity-layer"
+          ],
+          "default": "activity_suppression_zones",
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "tile_size_m",
+          "option": "--tile-size-m",
+          "options": [
+            "--tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "keep_output",
+          "option": "--keep-output",
+          "options": [
+            "--keep-output"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "resume",
+          "option": "--resume",
+          "options": [
+            "--resume"
+          ],
+          "default": false,
+          "help": "保留输出目录并复用第1阶段像元/证据检查点",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "stage1_progress_every_tiles",
+          "option": "--stage1-progress-every-tiles",
+          "options": [
+            "--stage1-progress-every-tiles"
+          ],
+          "default": 100,
+          "help": "第1阶段每读取多少个560m瓦片输出一次进度",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "stage1_chunk_pixels",
+          "option": "--stage1-chunk-pixels",
+          "options": [
+            "--stage1-chunk-pixels"
+          ],
+          "default": 1000000,
+          "help": "第1阶段矢量化邻接搜索的像元分块大小",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "stage1_progress_every_edges",
+          "option": "--stage1-progress-every-edges",
+          "options": [
+            "--stage1-progress-every-edges"
+          ],
+          "default": 10000,
+          "help": "第1阶段骨架链追踪每处理多少个出口输出一次进度",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "stage1_max_node_blob_pixels",
+          "option": "--stage1-max-node-blob-pixels",
+          "options": [
+            "--stage1-max-node-blob-pixels"
+          ],
+          "default": 64,
+          "help": "可折叠为单个拓扑节点的最大连续节点像元数；超出时拆分，避免射线",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "stage1_max_node_blob_span_cells",
+          "option": "--stage1-max-node-blob-span-cells",
+          "options": [
+            "--stage1-max-node-blob-span-cells"
+          ],
+          "default": 8,
+          "help": "可折叠节点团在行列方向的最大跨度；超出时拆分，避免长距离质心连接",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "geometry_source",
+          "option": "--geometry-source",
+          "options": [
+            "--geometry-source"
+          ],
+          "default": "primary",
+          "help": "最终路网几何来源；primary 最严格，辅助/救援层仅作为证据",
+          "required": false,
+          "kind": "choice",
+          "choices": [
+            "primary",
+            "primary_rescued",
+            "union"
+          ]
+        },
+        {
+          "dest": "uturn_core_buffer_m",
+          "option": "--uturn-core-buffer-m",
+          "options": [
+            "--uturn-core-buffer-m"
+          ],
+          "default": 4.0,
+          "help": "U 型弯共识中心线核心保护半径；核心内不删除数字环边，且采用更保守平滑",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_context_buffer_m",
+          "option": "--uturn-context-buffer-m",
+          "options": [
+            "--uturn-context-buffer-m"
+          ],
+          "default": 10.0,
+          "help": "U 型弯上下文保护半径；用于剪枝保护，但不再阻止非核心数字环清理",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "no_thin_geometry",
+          "option": "--no-thin-geometry",
+          "options": [
+            "--no-thin-geometry"
+          ],
+          "default": false,
+          "help": "关闭像元薄化；不建议，可能保留2x2矩形环",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "thin_halo_pixels",
+          "option": "--thin-halo-pixels",
+          "options": [
+            "--thin-halo-pixels"
+          ],
+          "default": 2,
+          "help": "分块薄化的边界重叠像元数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "artifact_loop_max_m",
+          "option": "--artifact-loop-max-m",
+          "options": [
+            "--artifact-loop-max-m"
+          ],
+          "default": 50.0,
+          "help": "数字小环候选最大周长；先尝试方向对角塌缩，失败再删弱边",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "artifact_loop_max_span_m",
+          "option": "--artifact-loop-max-span-m",
+          "options": [
+            "--artifact-loop-max-span-m"
+          ],
+          "default": 18.0,
+          "help": "强制打断的栅格数字小环最大外包跨度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "artifact_loop_rounds",
+          "option": "--artifact-loop-rounds",
+          "options": [
+            "--artifact-loop-rounds"
+          ],
+          "default": 8,
+          "help": "数字小环批量清理轮数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--artifact-fallback-loop-max-m",
+          "dest": "artifact_fallback_loop_max_m",
+          "options": [
+            "--artifact-fallback-loop-max-m"
+          ],
+          "default": 28.0,
+          "help": "无正向重复证据的几何回退删环最大周长；默认仅处理很小伪环",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--artifact-fallback-loop-max-span-m",
+          "dest": "artifact_fallback_loop_max_span_m",
+          "options": [
+            "--artifact-fallback-loop-max-span-m"
+          ],
+          "default": 8.0,
+          "help": "无正向重复证据的几何回退删环最大跨度；默认仅处理很小伪环",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "no_directional_loop_collapse",
+          "option": "--no-directional-loop-collapse",
+          "options": [
+            "--no-directional-loop-collapse"
+          ],
+          "default": false,
+          "help": "关闭方向对角塌缩；默认启用",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "directional_loop_max_angle_deg",
+          "option": "--directional-loop-max-angle-deg",
+          "options": [
+            "--directional-loop-max-angle-deg"
+          ],
+          "default": 30.0,
+          "help": "数字环两端外部道路方向与中心线弦最大夹角",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "directional_loop_evidence_distance_m",
+          "option": "--directional-loop-evidence-distance-m",
+          "options": [
+            "--directional-loop-evidence-distance-m"
+          ],
+          "default": 6.0,
+          "help": "方向对角候选距原始轨迹的距离证据阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "directional_loop_min_evidence_fraction",
+          "option": "--directional-loop-min-evidence-fraction",
+          "options": [
+            "--directional-loop-min-evidence-fraction"
+          ],
+          "default": 0.6,
+          "help": "方向对角候选沿线最少有效轨迹/KDE证据比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_micro_gap_repair",
+          "option": "--disable-micro-gap-repair",
+          "options": [
+            "--disable-micro-gap-repair"
+          ],
+          "default": false,
+          "help": "关闭证据约束的10m以内短断裂修复",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "micro_gap_max_missing_pixels",
+          "option": "--micro-gap-max-missing-pixels",
+          "options": [
+            "--micro-gap-max-missing-pixels"
+          ],
+          "default": 0,
+          "help": "最大连续缺失像元数；0=按10m物理上限与实际栅格分辨率自动推导",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "micro_gap_max_endpoint_distance_cells",
+          "option": "--micro-gap-max-endpoint-distance-cells",
+          "options": [
+            "--micro-gap-max-endpoint-distance-cells"
+          ],
+          "default": 0.0,
+          "help": "兼容像元距离上限；0=禁用，默认使用物理距离10m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_max_distance_m",
+          "option": "--micro-gap-max-distance-m",
+          "options": [
+            "--micro-gap-max-distance-m"
+          ],
+          "default": 10.0,
+          "help": "断点中心最大物理距离；默认10m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_long_threshold_m",
+          "option": "--micro-gap-long-threshold-m",
+          "options": [
+            "--micro-gap-long-threshold-m"
+          ],
+          "default": 6.0,
+          "help": "超过该长度使用更严格证据/方向判据；默认6m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_long_max_angle_deg",
+          "option": "--micro-gap-long-max-angle-deg",
+          "options": [
+            "--micro-gap-long-max-angle-deg"
+          ],
+          "default": 30.0,
+          "help": "6-10m断裂最大方向夹角；默认30度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_long_min_evidence_fraction",
+          "option": "--micro-gap-long-min-evidence-fraction",
+          "options": [
+            "--micro-gap-long-min-evidence-fraction"
+          ],
+          "default": 0.5,
+          "help": "6-10m断裂缺失区最低证据比例；默认0.50",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "allow_long_gap_in_uturn_context",
+          "option": "--allow-long-gap-in-uturn-context",
+          "options": [
+            "--allow-long-gap-in-uturn-context"
+          ],
+          "default": false,
+          "help": "允许>5m补断发生在U型弯上下文；默认关闭",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "micro_gap_max_angle_deg",
+          "option": "--micro-gap-max-angle-deg",
+          "options": [
+            "--micro-gap-max-angle-deg"
+          ],
+          "default": 45.0,
+          "help": "两端道路外向方向与连接方向的最大夹角",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_strong_angle_deg",
+          "option": "--micro-gap-strong-angle-deg",
+          "options": [
+            "--micro-gap-strong-angle-deg"
+          ],
+          "default": 20.0,
+          "help": "无额外栅格证据时允许的一像素强方向约束",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_distance_evidence_m",
+          "option": "--micro-gap-distance-evidence-m",
+          "options": [
+            "--micro-gap-distance-evidence-m"
+          ],
+          "default": 10.0,
+          "help": "缺失像元到原始轨迹距离小于该值视为有效证据；默认10m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_max_repairs",
+          "option": "--micro-gap-max-repairs",
+          "options": [
+            "--micro-gap-max-repairs"
+          ],
+          "default": 20000,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "micro_gap_progress_every",
+          "option": "--micro-gap-progress-every",
+          "options": [
+            "--micro-gap-progress-every"
+          ],
+          "default": 1000,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "allow_unevidenced_two_pixel_gap",
+          "option": "--allow-unevidenced-two-pixel-gap",
+          "options": [
+            "--allow-unevidenced-two-pixel-gap"
+          ],
+          "default": false,
+          "help": "允许非常笔直但无辅助栅格证据的两像素断裂修复",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "track_matcher",
+          "option": "--track-matcher",
+          "options": [
+            "--track-matcher"
+          ],
+          "default": "hmm",
+          "help": "",
+          "required": false,
+          "kind": "choice",
+          "choices": [
+            "hmm",
+            "nearest",
+            "none"
+          ]
+        },
+        {
+          "dest": "match_step",
+          "option": "--match-step",
+          "options": [
+            "--match-step"
+          ],
+          "default": 5,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "final_match_step",
+          "option": "--final-match-step",
+          "options": [
+            "--final-match-step"
+          ],
+          "default": 8,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "match_max_distance_m",
+          "option": "--match-max-distance-m",
+          "options": [
+            "--match-max-distance-m"
+          ],
+          "default": 45.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_max_candidates",
+          "option": "--hmm-max-candidates",
+          "options": [
+            "--hmm-max-candidates"
+          ],
+          "default": 5,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "hmm_emission_sigma_m",
+          "option": "--hmm-emission-sigma-m",
+          "options": [
+            "--hmm-emission-sigma-m"
+          ],
+          "default": 18.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_heading_sigma_deg",
+          "option": "--hmm-heading-sigma-deg",
+          "options": [
+            "--hmm-heading-sigma-deg"
+          ],
+          "default": 35.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_heading_weight",
+          "option": "--hmm-heading-weight",
+          "options": [
+            "--hmm-heading-weight"
+          ],
+          "default": 0.35,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_transition_beta_m",
+          "option": "--hmm-transition-beta-m",
+          "options": [
+            "--hmm-transition-beta-m"
+          ],
+          "default": 25.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_transition_jump_penalty",
+          "option": "--hmm-transition-jump-penalty",
+          "options": [
+            "--hmm-transition-jump-penalty"
+          ],
+          "default": 5.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_transition_mode",
+          "option": "--hmm-transition-mode",
+          "options": [
+            "--hmm-transition-mode"
+          ],
+          "default": "hybrid",
+          "help": "",
+          "required": false,
+          "kind": "choice",
+          "choices": [
+            "hybrid",
+            "exact",
+            "euclidean"
+          ]
+        },
+        {
+          "dest": "hmm_transition_exact_radius_m",
+          "option": "--hmm-transition-exact-radius-m",
+          "options": [
+            "--hmm-transition-exact-radius-m"
+          ],
+          "default": 180.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_road_weight",
+          "option": "--min-road-weight",
+          "options": [
+            "--min-road-weight"
+          ],
+          "default": 0.3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "write_matched_points",
+          "option": "--write-matched-points",
+          "options": [
+            "--write-matched-points"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "match_progress_every_tracks",
+          "option": "--match-progress-every-tracks",
+          "options": [
+            "--match-progress-every-tracks"
+          ],
+          "default": 100,
+          "help": "HMM 每处理多少条轨迹输出一次进度",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dangle_aux_max_m",
+          "option": "--dangle-aux-max-m",
+          "options": [
+            "--dangle-aux-max-m"
+          ],
+          "default": 32.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dangle_primary_max_m",
+          "option": "--dangle-primary-max-m",
+          "options": [
+            "--dangle-primary-max-m"
+          ],
+          "default": 12.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dangle_rescued_max_m",
+          "option": "--dangle-rescued-max-m",
+          "options": [
+            "--dangle-rescued-max-m"
+          ],
+          "default": 8.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "prune_confidence",
+          "option": "--prune-confidence",
+          "options": [
+            "--prune-confidence"
+          ],
+          "default": 0.38,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "weak_component_max_m",
+          "option": "--weak-component-max-m",
+          "options": [
+            "--weak-component-max-m"
+          ],
+          "default": 45.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "weak_loop_max_m",
+          "option": "--weak-loop-max-m",
+          "options": [
+            "--weak-loop-max-m"
+          ],
+          "default": 85.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_min_distance_m",
+          "option": "--parallel-min-distance-m",
+          "options": [
+            "--parallel-min-distance-m"
+          ],
+          "default": 1.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_max_distance_m",
+          "option": "--parallel-max-distance-m",
+          "options": [
+            "--parallel-max-distance-m"
+          ],
+          "default": 6.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_max_angle_deg",
+          "option": "--parallel-max-angle-deg",
+          "options": [
+            "--parallel-max-angle-deg"
+          ],
+          "default": 12.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_min_length_m",
+          "option": "--parallel-min-length-m",
+          "options": [
+            "--parallel-min-length-m"
+          ],
+          "default": 20.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_min_overlap_ratio",
+          "option": "--parallel-min-overlap-ratio",
+          "options": [
+            "--parallel-min-overlap-ratio"
+          ],
+          "default": 0.68,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_score_ratio",
+          "option": "--parallel-score-ratio",
+          "options": [
+            "--parallel-score-ratio"
+          ],
+          "default": 0.72,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "loop_max_rounds",
+          "option": "--loop-max-rounds",
+          "options": [
+            "--loop-max-rounds"
+          ],
+          "default": 4,
+          "help": "弱环批量清理最大轮数；大区域建议 3-4",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "parallel_progress_every",
+          "option": "--parallel-progress-every",
+          "options": [
+            "--parallel-progress-every"
+          ],
+          "default": 1000,
+          "help": "平行线检测每处理多少条边打印一次进度",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "skip_parallel_cleanup",
+          "option": "--skip-parallel-cleanup",
+          "options": [
+            "--skip-parallel-cleanup"
+          ],
+          "default": false,
+          "help": "跳过最耗时的重复平行线检测；用于快速诊断",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "aggressive_primary_pruning",
+          "option": "--aggressive-primary-pruning",
+          "options": [
+            "--aggressive-primary-pruning"
+          ],
+          "default": false,
+          "help": "启用旧版基于证据的 primary 删除；默认关闭以避免骨架线路丢失",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "preserve_turn_deg",
+          "option": "--preserve-turn-deg",
+          "options": [
+            "--preserve-turn-deg"
+          ],
+          "default": 42.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--geometry-chain-turn-deg",
+          "dest": "geometry_chain_turn_deg",
+          "kind": "value",
+          "value_type": "float",
+          "default": 110.0,
+          "required": false,
+          "help": "矢量平滑前的度2链合并转角阈值。2m栅格45/90度台阶会被并入连续道路链；U型弯核心仍受保护",
+          "options": [
+            "--geometry-chain-turn-deg"
+          ]
+        },
+        {
+          "dest": "topology_progress_every",
+          "option": "--topology-progress-every",
+          "options": [
+            "--topology-progress-every"
+          ],
+          "default": 50000,
+          "help": "度2链合并每处理多少条边输出一次进度",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "simplify_progress_every",
+          "option": "--simplify-progress-every",
+          "options": [
+            "--simplify-progress-every"
+          ],
+          "default": 10000,
+          "help": "几何简化每处理多少条边输出一次进度",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dem_progress_every",
+          "option": "--dem-progress-every",
+          "options": [
+            "--dem-progress-every"
+          ],
+          "default": 10000,
+          "help": "DEM 属性每处理多少条边输出一次进度",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "write_intermediate_bundles",
+          "option": "--write-intermediate-bundles",
+          "options": [
+            "--write-intermediate-bundles"
+          ],
+          "default": false,
+          "help": "输出每个阶段的 GPKG/SQLite；默认仅输出轻量诊断和最终路网",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "write_diagnostic_gpkg",
+          "option": "--write-diagnostic-gpkg",
+          "options": [
+            "--write-diagnostic-gpkg"
+          ],
+          "default": false,
+          "help": "输出可能较大的诊断 GPKG；默认仅写 CSV",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "smooth_iterations",
+          "option": "--smooth-iterations",
+          "options": [
+            "--smooth-iterations"
+          ],
+          "default": 2,
+          "help": "受约束 Chaikin 平滑迭代次数；2m栅格默认2轮，0关闭",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "smooth_ratio",
+          "option": "--smooth-ratio",
+          "options": [
+            "--smooth-ratio"
+          ],
+          "default": 0.25,
+          "help": "普通道路 Chaikin 比例；2m栅格默认0.25",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "smooth_corridor_m",
+          "option": "--smooth-corridor-m",
+          "options": [
+            "--smooth-corridor-m"
+          ],
+          "default": 1.75,
+          "help": "普通道路相对原primary几何最大Hausdorff偏移；2m栅格默认1.75m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_smooth_ratio",
+          "option": "--uturn-smooth-ratio",
+          "options": [
+            "--uturn-smooth-ratio"
+          ],
+          "default": 0.08,
+          "help": "U 型弯核心区域平滑比例，较普通道路更保守",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_smooth_corridor_m",
+          "option": "--uturn-smooth-corridor-m",
+          "options": [
+            "--uturn-smooth-corridor-m"
+          ],
+          "default": 0.8,
+          "help": "U 型弯核心区域最大 Hausdorff 偏移",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "simplify_tolerance_m",
+          "option": "--simplify-tolerance-m",
+          "options": [
+            "--simplify-tolerance-m"
+          ],
+          "default": 0.0,
+          "help": "默认关闭最终Douglas-Peucker折线化；避免平滑曲线再次被压成折线",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "simplify_corridor_m",
+          "option": "--simplify-corridor-m",
+          "options": [
+            "--simplify-corridor-m"
+          ],
+          "default": 1.75,
+          "help": "兼容字段；建议与 smooth-corridor-m 保持一致",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_simplify_tolerance_m",
+          "option": "--uturn-simplify-tolerance-m",
+          "options": [
+            "--uturn-simplify-tolerance-m"
+          ],
+          "default": 0.0,
+          "help": "默认关闭U型弯Douglas-Peucker折线化，保留连续hairpin曲线",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_smooth_sample_m",
+          "option": "--final-smooth-sample-m",
+          "options": [
+            "--final-smooth-sample-m"
+          ],
+          "default": 0.5,
+          "help": "最终整链平滑输出采样间距；0.5m提供连续视觉曲线",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_smooth_sigma_m",
+          "option": "--final-smooth-sigma-m",
+          "options": [
+            "--final-smooth-sigma-m"
+          ],
+          "default": 3.0,
+          "help": "普通道路整链高斯平滑尺度；默认3m强平滑",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_smooth_corridor_m",
+          "option": "--final-smooth-corridor-m",
+          "options": [
+            "--final-smooth-corridor-m"
+          ],
+          "default": 2.5,
+          "help": "普通道路相对已验证路网允许的最大几何偏移",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_uturn_smooth_sigma_m",
+          "option": "--final-uturn-smooth-sigma-m",
+          "options": [
+            "--final-uturn-smooth-sigma-m"
+          ],
+          "default": 1.0,
+          "help": "U型弯最终平滑尺度，较普通道路更保守",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_uturn_smooth_corridor_m",
+          "option": "--final-uturn-smooth-corridor-m",
+          "options": [
+            "--final-uturn-smooth-corridor-m"
+          ],
+          "default": 0.8,
+          "help": "U型弯最终平滑最大偏移",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_smooth_min_sigma_m",
+          "option": "--final-smooth-min-sigma-m",
+          "options": [
+            "--final-smooth-min-sigma-m"
+          ],
+          "default": 0.3,
+          "help": "走廊验证失败时自适应减弱平滑的最小尺度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_final_chain_smoothing",
+          "option": "--disable-final-chain-smoothing",
+          "options": [
+            "--disable-final-chain-smoothing"
+          ],
+          "default": false,
+          "help": "关闭最终整条道路链平滑",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "baseline_corridor_m",
+          "option": "--baseline-corridor-m",
+          "options": [
+            "--baseline-corridor-m"
+          ],
+          "default": 1.75,
+          "help": "普通道路相对 primary 栅格骨架的批准平滑走廊；审计自动叠加半个像元对角线，仅用于像元足迹补偿，不放宽真实矢量偏移",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dem_sample_spacing_m",
+          "option": "--dem-sample-spacing-m",
+          "options": [
+            "--dem-sample-spacing-m"
+          ],
+          "default": 5.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--disable-polygon-loop-resolver",
+          "dest": "disable_polygon_loop_resolver",
+          "options": [
+            "--disable-polygon-loop-resolver"
+          ],
+          "default": false,
+          "help": "关闭任意多边形锁环解析",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--polygon-loop-max-perimeter-m",
+          "dest": "polygon_loop_max_perimeter_m",
+          "options": [
+            "--polygon-loop-max-perimeter-m"
+          ],
+          "default": 180.0,
+          "help": "任意形状锁环解析最大周长",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-max-span-m",
+          "dest": "polygon_loop_max_span_m",
+          "options": [
+            "--polygon-loop-max-span-m"
+          ],
+          "default": 60.0,
+          "help": "任意形状锁环解析最大跨度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-max-area-m2",
+          "dest": "polygon_loop_max_area_m2",
+          "options": [
+            "--polygon-loop-max-area-m2"
+          ],
+          "default": 1800.0,
+          "help": "任意形状锁环解析最大面积",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-force-perimeter-m",
+          "dest": "polygon_loop_force_perimeter_m",
+          "options": [
+            "--polygon-loop-force-perimeter-m"
+          ],
+          "default": 100.0,
+          "help": "合理范围内强制处理锁环最大周长",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-force-span-m",
+          "dest": "polygon_loop_force_span_m",
+          "options": [
+            "--polygon-loop-force-span-m"
+          ],
+          "default": 35.0,
+          "help": "合理范围内强制处理锁环最大跨度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-force-area-m2",
+          "dest": "polygon_loop_force_area_m2",
+          "options": [
+            "--polygon-loop-force-area-m2"
+          ],
+          "default": 650.0,
+          "help": "合理范围内强制处理锁环最大面积",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-thin-p90-width-m",
+          "dest": "polygon_loop_thin_p90_width_m",
+          "options": [
+            "--polygon-loop-thin-p90-width-m"
+          ],
+          "default": 14.0,
+          "help": "双门点多边形两分支P90距离阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-thin-max-width-m",
+          "dest": "polygon_loop_thin_max_width_m",
+          "options": [
+            "--polygon-loop-thin-max-width-m"
+          ],
+          "default": 20.0,
+          "help": "双门点多边形两分支最大距离阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-weak-branch-ratio",
+          "dest": "polygon_loop_weak_branch_ratio",
+          "options": [
+            "--polygon-loop-weak-branch-ratio"
+          ],
+          "default": 0.82,
+          "help": "弱分支/强分支证据比低于该值时删除弱分支",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-rounds",
+          "dest": "polygon_loop_rounds",
+          "options": [
+            "--polygon-loop-rounds"
+          ],
+          "default": 12,
+          "help": "任意多边形锁环最大解析轮数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--disable-polygon-loop-force",
+          "dest": "disable_polygon_loop_force",
+          "options": [
+            "--disable-polygon-loop-force"
+          ],
+          "default": false,
+          "help": "关闭合理范围内强制去锁环",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--disable-s4-track-gap-repair",
+          "dest": "disable_s4_track_gap_repair",
+          "options": [
+            "--disable-s4-track-gap-repair"
+          ],
+          "default": false,
+          "help": "关闭S4同轨迹连续性补断",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--s4-track-gap-max-endpoint-distance-m",
+          "dest": "s4_track_gap_max_endpoint_distance_m",
+          "options": [
+            "--s4-track-gap-max-endpoint-distance-m"
+          ],
+          "default": 35.0,
+          "help": "同一S4轨迹连续穿过时两断点最大直线距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--s4-track-gap-max-path-m",
+          "dest": "s4_track_gap_max_path_m",
+          "options": [
+            "--s4-track-gap-max-path-m"
+          ],
+          "default": 50.0,
+          "help": "S4同轨迹补断最大真实子路径长度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--s4-track-gap-snap-m",
+          "dest": "s4_track_gap_snap_m",
+          "options": [
+            "--s4-track-gap-snap-m"
+          ],
+          "default": 6.0,
+          "help": "端点到S4调整轨迹最大吸附距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--s4-track-gap-max-angle-deg",
+          "dest": "s4_track_gap_max_angle_deg",
+          "options": [
+            "--s4-track-gap-max-angle-deg"
+          ],
+          "default": 50.0,
+          "help": "S4同轨迹补断两端最大方向差",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--s4-track-gap-max-repairs",
+          "dest": "s4_track_gap_max_repairs",
+          "options": [
+            "--s4-track-gap-max-repairs"
+          ],
+          "default": 5000,
+          "help": "S4同轨迹补断最大数量",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--disable-force-direction-gap",
+          "dest": "disable_force_direction_gap",
+          "options": [
+            "--disable-force-direction-gap"
+          ],
+          "default": false,
+          "help": "关闭最后一级强方向强制补断",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--force-direction-gap-max-m",
+          "dest": "force_direction_gap_max_m",
+          "options": [
+            "--force-direction-gap-max-m"
+          ],
+          "default": 15.0,
+          "help": "无同轨迹证据时强方向强制补断最大距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--force-direction-gap-max-angle-deg",
+          "dest": "force_direction_gap_max_angle_deg",
+          "options": [
+            "--force-direction-gap-max-angle-deg"
+          ],
+          "default": 20.0,
+          "help": "强方向补断两端最大方向差",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--force-direction-gap-min-evidence-fraction",
+          "dest": "force_direction_gap_min_evidence_fraction",
+          "options": [
+            "--force-direction-gap-min-evidence-fraction"
+          ],
+          "default": 0.4,
+          "help": "强方向补断最低证据覆盖比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--force-direction-gap-evidence-distance-m",
+          "dest": "force_direction_gap_evidence_distance_m",
+          "options": [
+            "--force-direction-gap-evidence-distance-m"
+          ],
+          "default": 10.0,
+          "help": "强方向补断距离证据阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--force-direction-gap-max-repairs",
+          "dest": "force_direction_gap_max_repairs",
+          "options": [
+            "--force-direction-gap-max-repairs"
+          ],
+          "default": 5000,
+          "help": "强方向补断最大数量",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--disable-junction-repair",
+          "dest": "disable_junction_repair",
+          "options": [
+            "--disable-junction-repair"
+          ],
+          "default": false,
+          "help": "关闭交叉口拓扑修复",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true,
+          "value_type": "bool"
+        },
+        {
+          "option": "--junction-edge-snap-max-m",
+          "dest": "junction_edge_snap_max_m",
+          "options": [
+            "--junction-edge-snap-max-m"
+          ],
+          "default": 8.0,
+          "help": "支路断端吸附到邻近道路边的最大距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-edge-node-merge-m",
+          "dest": "junction_edge_node_merge_m",
+          "options": [
+            "--junction-edge-node-merge-m"
+          ],
+          "default": 2.5,
+          "help": "距既有节点很近时直接共用该节点，避免微小边",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-edge-max-angle-deg",
+          "dest": "junction_edge_max_angle_deg",
+          "options": [
+            "--junction-edge-max-angle-deg"
+          ],
+          "default": 65.0,
+          "help": "端点原道路方向与交叉口连接方向最大夹角",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-min-evidence-fraction",
+          "dest": "junction_min_evidence_fraction",
+          "options": [
+            "--junction-min-evidence-fraction"
+          ],
+          "default": 0.25,
+          "help": "端点到道路边补连最低证据覆盖比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-evidence-distance-m",
+          "dest": "junction_evidence_distance_m",
+          "options": [
+            "--junction-evidence-distance-m"
+          ],
+          "default": 10.0,
+          "help": "交叉口补连距离证据阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-edge-rounds",
+          "dest": "junction_edge_rounds",
+          "options": [
+            "--junction-edge-rounds"
+          ],
+          "default": 4,
+          "help": "端点到道路边修复轮数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-edge-max-repairs",
+          "dest": "junction_edge_max_repairs",
+          "options": [
+            "--junction-edge-max-repairs"
+          ],
+          "default": 5000,
+          "help": "端点到道路边最大修复数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-cluster-radius-m",
+          "dest": "junction_cluster_radius_m",
+          "options": [
+            "--junction-cluster-radius-m"
+          ],
+          "default": 8.0,
+          "help": "X/Y交叉口多个断端聚类半径",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-cluster-center-search-m",
+          "dest": "junction_cluster_center_search_m",
+          "options": [
+            "--junction-cluster-center-search-m"
+          ],
+          "default": 4.0,
+          "help": "共同交叉口中心KDE/support局部搜索半径",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-cluster-max-angle-deg",
+          "dest": "junction_cluster_max_angle_deg",
+          "options": [
+            "--junction-cluster-max-angle-deg"
+          ],
+          "default": 75.0,
+          "help": "断端指向共同交叉口中心最大方向差",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-cluster-min-evidence-fraction",
+          "dest": "junction_cluster_min_evidence_fraction",
+          "options": [
+            "--junction-cluster-min-evidence-fraction"
+          ],
+          "default": 0.2,
+          "help": "共同交叉口每条连接臂最低证据比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-cluster-min-size",
+          "dest": "junction_cluster_min_size",
+          "options": [
+            "--junction-cluster-min-size"
+          ],
+          "default": 3,
+          "help": "创建共享hub所需最少有效断端数；2个断端不建degree-2 hub",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-cluster-max-size",
+          "dest": "junction_cluster_max_size",
+          "options": [
+            "--junction-cluster-max-size"
+          ],
+          "default": 6,
+          "help": "一次共同交叉口最多断端数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-cluster-max-repairs",
+          "dest": "junction_cluster_max_repairs",
+          "options": [
+            "--junction-cluster-max-repairs"
+          ],
+          "default": 2000,
+          "help": "共同交叉口最大新增连接臂数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--allow-polygon-loop-resolver",
+          "dest": "allow_polygon_loop_resolver",
+          "options": [
+            "--allow-polygon-loop-resolver"
+          ],
+          "default": false,
+          "help": "显式启用旧式任意多边形删环；默认关闭以保留真实道路环路",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--disable-cycle-closure",
+          "dest": "disable_cycle_closure",
+          "options": [
+            "--disable-cycle-closure"
+          ],
+          "default": false,
+          "help": "关闭同一连通分量内的证据约束闭环补连",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--cycle-closure-min-detour-ratio",
+          "dest": "cycle_closure_min_detour_ratio",
+          "options": [
+            "--cycle-closure-min-detour-ratio"
+          ],
+          "default": 1.8,
+          "help": "同分量闭环补连要求既有绕行/新连接的最小长度比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--cycle-closure-min-detour-excess-m",
+          "dest": "cycle_closure_min_detour_excess_m",
+          "options": [
+            "--cycle-closure-min-detour-excess-m"
+          ],
+          "default": 8.0,
+          "help": "同分量闭环补连要求既有绕行至少多出的米数",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--disable-component-stitching",
+          "dest": "disable_component_stitching",
+          "options": [
+            "--disable-component-stitching"
+          ],
+          "default": false,
+          "help": "关闭局部破碎路网分量拼接",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--component-stitch-max-m",
+          "dest": "component_stitch_max_m",
+          "options": [
+            "--component-stitch-max-m"
+          ],
+          "default": 28.0,
+          "help": "局部破碎分量端点自动拼接最大距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-max-angle-deg",
+          "dest": "component_stitch_max_angle_deg",
+          "options": [
+            "--component-stitch-max-angle-deg"
+          ],
+          "default": 35.0,
+          "help": "短距离分量拼接最大方向偏差",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-min-evidence-fraction",
+          "dest": "component_stitch_min_evidence_fraction",
+          "options": [
+            "--component-stitch-min-evidence-fraction"
+          ],
+          "default": 0.35,
+          "help": "短距离分量拼接最低连续证据比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-long-threshold-m",
+          "dest": "component_stitch_long_threshold_m",
+          "options": [
+            "--component-stitch-long-threshold-m"
+          ],
+          "default": 15.0,
+          "help": "超过该距离启用严格长缺口门限",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-long-max-angle-deg",
+          "dest": "component_stitch_long_max_angle_deg",
+          "options": [
+            "--component-stitch-long-max-angle-deg"
+          ],
+          "default": 22.5,
+          "help": "长距离分量拼接最大方向偏差",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-long-min-evidence-fraction",
+          "dest": "component_stitch_long_min_evidence_fraction",
+          "options": [
+            "--component-stitch-long-min-evidence-fraction"
+          ],
+          "default": 0.65,
+          "help": "长距离分量拼接最低连续证据比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-evidence-distance-m",
+          "dest": "component_stitch_evidence_distance_m",
+          "options": [
+            "--component-stitch-evidence-distance-m"
+          ],
+          "default": 10.0,
+          "help": "分量拼接的轨迹距离证据阈值",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-max-repairs",
+          "dest": "component_stitch_max_repairs",
+          "options": [
+            "--component-stitch-max-repairs"
+          ],
+          "default": 10000,
+          "help": "分量拼接最多新增连接数量",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--isolated-component-hard-max-m",
+          "dest": "isolated_component_hard_max_m",
+          "options": [
+            "--isolated-component-hard-max-m"
+          ],
+          "default": 25.0,
+          "help": "完全孤立且总长度不超过该值直接删除，即使来源是primary",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--isolated-component-weak-max-m",
+          "dest": "isolated_component_weak_max_m",
+          "options": [
+            "--isolated-component-weak-max-m"
+          ],
+          "default": 60.0,
+          "help": "无轨迹支持且低置信度的孤立分量最大删除长度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--isolated-component-weak-max-tracks",
+          "dest": "isolated_component_weak_max_tracks",
+          "options": [
+            "--isolated-component-weak-max-tracks"
+          ],
+          "default": 0,
+          "help": "弱孤立分量允许的最大匹配轨迹数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--isolated-component-weak-max-confidence",
+          "dest": "isolated_component_weak_max_confidence",
+          "options": [
+            "--isolated-component-weak-max-confidence"
+          ],
+          "default": 0.42,
+          "help": "弱孤立分量最大边置信度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-spur-hard-max-m",
+          "dest": "junction_spur_hard_max_m",
+          "options": [
+            "--junction-spur-hard-max-m"
+          ],
+          "default": 6.0,
+          "help": "交叉口极短毛刺链直接删除长度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-spur-weak-max-m",
+          "dest": "junction_spur_weak_max_m",
+          "options": [
+            "--junction-spur-weak-max-m"
+          ],
+          "default": 22.0,
+          "help": "无轨迹支持且弱的交叉口毛刺最大删除长度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-spur-weak-max-tracks",
+          "dest": "junction_spur_weak_max_tracks",
+          "options": [
+            "--junction-spur-weak-max-tracks"
+          ],
+          "default": 0,
+          "help": "弱交叉口毛刺最大匹配轨迹数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-spur-weak-max-confidence",
+          "dest": "junction_spur_weak_max_confidence",
+          "options": [
+            "--junction-spur-weak-max-confidence"
+          ],
+          "default": 0.4,
+          "help": "弱交叉口毛刺最大边置信度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-spur-rounds",
+          "dest": "junction_spur_rounds",
+          "options": [
+            "--junction-spur-rounds"
+          ],
+          "default": 4,
+          "help": "交叉口毛刺迭代删除轮数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "disable_raw_track_gap_repair",
+          "option": "--disable-raw-track-gap-repair",
+          "options": [
+            "--disable-raw-track-gap-repair"
+          ],
+          "default": false,
+          "help": "关闭原始轨迹拓扑见证补断",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "raw_track_max_step_m",
+          "option": "--raw-track-max-step-m",
+          "options": [
+            "--raw-track-max-step-m"
+          ],
+          "default": 100.0,
+          "help": "原始轨迹见证允许的最大相邻步长；仅用于剔除明显跳点",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_max_speed_mps",
+          "option": "--raw-track-max-speed-mps",
+          "options": [
+            "--raw-track-max-speed-mps"
+          ],
+          "default": 8.0,
+          "help": "原始轨迹见证的最大合理速度，超过则断开见证链",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_max_time_gap_s",
+          "option": "--raw-track-max-time-gap-s",
+          "options": [
+            "--raw-track-max-time-gap-s"
+          ],
+          "default": 1800.0,
+          "help": "原始轨迹见证的最大连续时间间隔",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_isolated_spike_bridge_m",
+          "option": "--raw-track-isolated-spike-bridge-m",
+          "options": [
+            "--raw-track-isolated-spike-bridge-m"
+          ],
+          "default": 80.0,
+          "help": "允许跳过单个明显GPS尖峰后恢复原轨迹连续性的最大A-C距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_max_endpoint_distance_m",
+          "option": "--raw-track-gap-max-endpoint-distance-m",
+          "options": [
+            "--raw-track-gap-max-endpoint-distance-m"
+          ],
+          "default": 40.0,
+          "help": "原始同轨迹见证的断端-断端最大直线距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_max_path_m",
+          "option": "--raw-track-gap-max-path-m",
+          "options": [
+            "--raw-track-gap-max-path-m"
+          ],
+          "default": 65.0,
+          "help": "原始轨迹见证子路径最大实际长度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_snap_m",
+          "option": "--raw-track-gap-snap-m",
+          "options": [
+            "--raw-track-gap-snap-m"
+          ],
+          "default": 7.0,
+          "help": "网络断端吸附到原始轨迹见证的最大距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_max_angle_deg",
+          "option": "--raw-track-gap-max-angle-deg",
+          "options": [
+            "--raw-track-gap-max-angle-deg"
+          ],
+          "default": 65.0,
+          "help": "原始轨迹见证补断与两侧道路方向的最大夹角",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_min_witness_tracks",
+          "option": "--raw-track-gap-min-witness-tracks",
+          "options": [
+            "--raw-track-gap-min-witness-tracks"
+          ],
+          "default": 1,
+          "help": "补断至少需要多少条独立原始轨迹连续见证",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "raw_track_gap_max_path_ratio",
+          "option": "--raw-track-gap-max-path-ratio",
+          "options": [
+            "--raw-track-gap-max-path-ratio"
+          ],
+          "default": 3.0,
+          "help": "原始见证子路径长度/断口直线距离最大比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_corridor_m",
+          "option": "--raw-track-gap-corridor-m",
+          "options": [
+            "--raw-track-gap-corridor-m"
+          ],
+          "default": 10.0,
+          "help": "原始见证子路径相对候选连接的P90最大偏离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_max_repairs",
+          "option": "--raw-track-gap-max-repairs",
+          "options": [
+            "--raw-track-gap-max-repairs"
+          ],
+          "default": 5000,
+          "help": "原始轨迹见证补断最大数量",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "raw_witness_relaxed_max_angle_deg",
+          "option": "--raw-witness-relaxed-max-angle-deg",
+          "options": [
+            "--raw-witness-relaxed-max-angle-deg"
+          ],
+          "default": 75.0,
+          "help": "原始轨迹强见证用于endpoint-to-edge时允许的最大接近角",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_bridge_max_m",
+          "option": "--parallel-bridge-max-m",
+          "options": [
+            "--parallel-bridge-max-m"
+          ],
+          "default": 35.0,
+          "help": "平行道路横向误桥接反审计的最大连接长度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_bridge_axis_max_angle_deg",
+          "option": "--parallel-bridge-axis-max-angle-deg",
+          "options": [
+            "--parallel-bridge-axis-max-angle-deg"
+          ],
+          "default": 15.0,
+          "help": "两侧道路小于该轴向夹角时视为局部平行",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_bridge_min_cross_angle_deg",
+          "option": "--parallel-bridge-min-cross-angle-deg",
+          "options": [
+            "--parallel-bridge-min-cross-angle-deg"
+          ],
+          "default": 55.0,
+          "help": "连接杆与两侧平行道路均大于该夹角时视为横向桥",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_bridge_min_side_tracks",
+          "option": "--parallel-bridge-min-side-tracks",
+          "options": [
+            "--parallel-bridge-min-side-tracks"
+          ],
+          "default": 1,
+          "help": "仅当原始轨迹分别占据两侧平行道路时，缺少跨越见证才作为负证据",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "cycle_route_family_min_tracks",
+          "option": "--cycle-route-family-min-tracks",
+          "options": [
+            "--cycle-route-family-min-tracks"
+          ],
+          "default": 2,
+          "help": "0/1/多门点环保留所需完整绕环独立原始轨迹数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "raw_coverage_max_endpoint_distance_m",
+          "option": "--raw-coverage-max-endpoint-distance-m",
+          "options": [
+            "--raw-coverage-max-endpoint-distance-m"
+          ],
+          "default": 90.0,
+          "help": "最终原始轨迹覆盖审计允许恢复的断口端点最大直线距离",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_coverage_max_path_m",
+          "option": "--raw-coverage-max-path-m",
+          "options": [
+            "--raw-coverage-max-path-m"
+          ],
+          "default": 140.0,
+          "help": "最终原始轨迹覆盖审计允许采用的真实轨迹子路径最大长度",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_coverage_min_witness_tracks",
+          "option": "--raw-coverage-min-witness-tracks",
+          "options": [
+            "--raw-coverage-min-witness-tracks"
+          ],
+          "default": 2,
+          "help": "最终覆盖恢复至少需要的独立原始轨迹见证数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "raw_coverage_max_path_ratio",
+          "option": "--raw-coverage-max-path-ratio",
+          "options": [
+            "--raw-coverage-max-path-ratio"
+          ],
+          "default": 3.5,
+          "help": "最终覆盖恢复真实轨迹子路径长度/直线距离最大比例",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_coverage_max_angle_deg",
+          "option": "--raw-coverage-max-angle-deg",
+          "options": [
+            "--raw-coverage-max-angle-deg"
+          ],
+          "default": 70.0,
+          "help": "最终覆盖恢复端点切向允许的最大夹角",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_coverage_max_repairs",
+          "option": "--raw-coverage-max-repairs",
+          "options": [
+            "--raw-coverage-max-repairs"
+          ],
+          "default": 2000,
+          "help": "最终原始轨迹覆盖恢复最大补连数",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "thin_duplicate_min_independent_tracks",
+          "option": "--thin-duplicate-min-independent-tracks",
+          "options": [
+            "--thin-duplicate-min-independent-tracks"
+          ],
+          "default": 3,
+          "help": "长窄重复走廊环每条独立路线至少需要的原始轨迹数；不足则压为单线",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        }
+      ]
+    }
+  }
+}

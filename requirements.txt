@@ -1,0 +1,11 @@
+numpy
+pandas
+scipy
+pyproj
+geopandas
+shapely
+rasterio
+scikit-image
+Pillow
+pyogrio
+networkx

@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# User data: keep directory structure, do not publish research/raw data by default
+data/*
+!data/raw_kml/
+!data/raw_kml/.gitkeep
+!data/observed_tracks/
+!data/observed_tracks/.gitkeep
+!data/boundary/
+!data/boundary/.gitkeep
+
+# Pipeline outputs
+outputs/*
+!outputs/.gitkeep
+
+# Common geospatial intermediates / large results
+*.tif
+*.tiff
+*.gpkg
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.qmd
+*.aux.xml
+*.ovr
+*.lock
+
+# Logs / temporary files
+*.log
+*.tmp
+*.bak
+~$*
+configs/last_config.json
+data/raw_kml/*
+!data/raw_kml/.gitkeep
+data/observed_tracks/*
+!data/observed_tracks/.gitkeep
+data/boundary/*
+!data/boundary/.gitkeep
