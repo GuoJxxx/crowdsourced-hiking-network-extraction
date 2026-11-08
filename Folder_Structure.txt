@@ -1,0 +1,45 @@
+crowdsourced-hiking-network-extraction/
+|-- Start.cmd
+|-- Run_Window.py
+|-- Run_Workflow.py
+|-- README.md
+|-- REPRODUCE.md
+|-- settings.json
+|-- requirements.txt
+|-- Chicago/
+|   |-- Chicago_RunAll.cmd
+|   |-- Chicago_README.md
+|   |-- Data/
+|   |-- Methods/
+|   |   |-- Ahmed/
+|   |   |-- Biagioni/
+|   |   |-- Davies/
+|   |   |-- Edelkamp/
+|   |   |-- Karagiorgou/
+|   |   `-- Proposed/
+|   |-- Evaluation/
+|   `-- Results/
+`-- StudyArea/
+    |-- StudyArea_RunAll.cmd
+    |-- StudyArea_README.md
+    |-- Data/
+    |-- Methods/
+    |   |-- Edelkamp/
+    |   |-- Biagioni/
+    |   |-- Karagiorgou/
+    |   `-- Proposed/
+    |-- Ablation/
+    |   |-- StudyArea_Proposed_Full.py
+    |   |-- StudyArea_Proposed_WithoutActivity.py
+    |   |-- StudyArea_Proposed_WithoutHairpin.py
+    |   |-- StudyArea_Proposed_WithoutTopology.py
+    |   `-- StudyArea_Proposed_Ablation_RunAll.py
+    |-- Evaluation/
+    `-- Results/
+
+Method entry: <Dataset>/Methods/<Method>/<Dataset>_<Method>_run.py
+Method parameters: <Dataset>/Methods/<Method>/<Dataset>_<Method>_parameters.json
+Method network: <Dataset>/Results/<Dataset>_<Method>/<Dataset>_<Method>_Network.gpkg
+
+Tables: Table1 (Chicago), Table2, Table3, TableA1 (StudyArea).
+Figures: Figure8 (Chicago), Figure9-Figure12 (StudyArea).

@@ -1,0 +1,7 @@
+{
+  "seed_interval_m": 50.0,
+  "bearing_limit_deg": 45.0,
+  "intra_cluster_distance_m": 20.0,
+  "edge_bounding_box_m": 80.0,
+  "movement_threshold_m": 0.01
+}

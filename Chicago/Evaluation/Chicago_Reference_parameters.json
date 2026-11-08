@@ -1,0 +1,64 @@
+{
+  "chicago": {
+    "ahmed": {
+      "epsilon": 150.0,
+      "has_altitude": false,
+      "alt_epsilon": 4.0
+    },
+    "biagioni": {
+      "cell_size_m": 1,
+      "gaussian_blur": 17
+    },
+    "davies": {
+      "cell_size": 2,
+      "mask_threshold": 100,
+      "gaussian_blur": 17,
+      "voronoi_sampling_interval": 10,
+      "min_direction_count": 10
+    },
+    "edelkamp": {
+      "seed_interval_m": 50.0,
+      "bearing_limit_deg": 45.0,
+      "intra_cluster_distance_m": 20.0,
+      "edge_bounding_box_m": 80.0,
+      "movement_threshold_m": 0.01
+    },
+    "karagiorgou": {
+      "cluster_distance_m": 40,
+      "angle_tolerance_deg": 12.5
+    }
+  },
+  "mainling": {
+    "edelkamp": {
+      "seed_interval_m": 50.0,
+      "bearing_limit_deg": 45.0,
+      "intra_cluster_distance_m": 20.0,
+      "edge_bounding_box_m": 80.0,
+      "movement_threshold_m": 0.01
+    },
+    "biagioni": {
+      "cell_size_m": 1,
+      "gaussian_blur": 17
+    },
+    "karagiorgou": {
+      "cluster_distance_m": 40,
+      "angle_tolerance_deg": 12.5
+    }
+  },
+  "evaluation": {
+    "cell_size_m": 2,
+    "coverage_m": 15,
+    "tolerances_m": [
+      4,
+      6,
+      8,
+      10,
+      15,
+      20,
+      25,
+      30,
+      35,
+      40
+    ]
+  }
+}

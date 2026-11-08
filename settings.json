@@ -1,0 +1,18 @@
+{
+  "tools": {
+    "python": "",
+    "matlab": "",
+    "java": "",
+    "javac": ""
+  },
+  "paths": {
+    "chicago_tracks": "Chicago/Data/Chicago_Trajectories.zip",
+    "chicago_map": "Chicago/Data/Chicago_ReferenceMap.zip",
+    "mainling_observed": "StudyArea/Data/StudyArea_Trajectories",
+    "reference_manifest": "StudyArea/Data/StudyArea_ReferenceManifest.json",
+    "boundary": "StudyArea/Data/StudyArea_Boundary.shp",
+    "dem": "StudyArea/Data/StudyArea_DEM.tif",
+    "chicago_results": "Chicago/Results",
+    "studyarea_results": "StudyArea/Results"
+  }
+}

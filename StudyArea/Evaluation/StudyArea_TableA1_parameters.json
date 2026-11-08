@@ -1,0 +1,218 @@
+[
+  {
+    "module": "Activity awareness",
+    "parameter": "Analysis grid size",
+    "value": "10 m",
+    "role": "Scale for local motion statistics"
+  },
+  {
+    "module": "Activity awareness",
+    "parameter": "Direction bins",
+    "value": "12",
+    "role": "Directional entropy calculation"
+  },
+  {
+    "module": "Activity awareness",
+    "parameter": "Path-efficiency half-window",
+    "value": "5 points",
+    "role": "Local continuous-travel assessment"
+  },
+  {
+    "module": "Activity awareness",
+    "parameter": "Minimum points / independent trajectories per candidate cell",
+    "value": "20 / 3",
+    "role": "Reliable local statistics"
+  },
+  {
+    "module": "Activity awareness",
+    "parameter": "Directional entropy threshold",
+    "value": "0.62",
+    "role": "Activity-candidate triggering"
+  },
+  {
+    "module": "Activity awareness",
+    "parameter": "Endpoint / low-efficiency / low-speed proportion thresholds",
+    "value": "0.08 / 0.35 / 0.20",
+    "role": "Behavioral evidence "
+  },
+  {
+    "module": "Activity awareness",
+    "parameter": "Low-efficiency / low-speed point thresholds",
+    "value": "0.45 / 0.35 m/s",
+    "role": "Definitions of inefficient and slow movement"
+  },
+  {
+    "module": "Road protection",
+    "parameter": "Minimum dominant-direction proportion / efficiency for stable corridors",
+    "value": "0.55 / 0.60",
+    "role": "Protection of consistent through-routes"
+  },
+  {
+    "module": "Road protection",
+    "parameter": "Minimum elongation / efficiency for curved corridors",
+    "value": "0.48 / 0.30",
+    "role": "Protection of curved roads from activity suppression"
+  },
+  {
+    "module": "Through-route",
+    "parameter": "Minimum support / efficiency / direction dispersion / gate-point distance",
+    "value": "3 / 0.55 / 30° / 10 m",
+    "role": "Recovery of passage across activity areas"
+  },
+  {
+    "module": "Evidence weighting",
+    "parameter": "Activity-interior / boundary weights",
+    "value": "0.10 / 0.65",
+    "role": "Suppression of artifacts inside activity areas"
+  },
+  {
+    "module": "Evidence weighting",
+    "parameter": "Curve / direction-consistent / through-corridor / main-skeleton weights",
+    "value": "0.90 / 0.85 / 0.95 / 1.00",
+    "role": "Graded enhancement of road evidence"
+  },
+  {
+    "module": "Evidence weighting",
+    "parameter": "Minimum road-candidate weight",
+    "value": "0.35",
+    "role": "Candidate acceptance"
+  },
+  {
+    "module": "Hairpin candidates",
+    "parameter": "Resampling interval / candidate-window length",
+    "value": "2 m / 40–140 m",
+    "role": "Candidate detection in individual trajectories"
+  },
+  {
+    "module": "Hairpin candidates",
+    "parameter": "Reversal / signed-turning angle thresholds",
+    "value": "115° / 110°",
+    "role": "Detection of reversals and concentrated curvature"
+  },
+  {
+    "module": "Hairpin candidates",
+    "parameter": "Maximum efficiency / minimum turn consistency",
+    "value": "0.68 / 0.45",
+    "role": "Exclusion of ordinary curves and local noise"
+  },
+  {
+    "module": "Hairpin candidates",
+    "parameter": "Maximum chord length / minimum bulge",
+    "value": "45 m / 5 m",
+    "role": "Hairpin geometry constraints"
+  },
+  {
+    "module": "Hairpin clustering",
+    "parameter": "Apex distance / curve RMS thresholds",
+    "value": "30 / 40 m",
+    "role": "Candidate clustering across trajectories"
+  },
+  {
+    "module": "Hairpin consensus",
+    "parameter": "Minimum independent trajectories in ordinary / activity areas",
+    "value": "3 / 4",
+    "role": "Multi-trajectory consensus formation"
+  },
+  {
+    "module": "Hairpin consensus",
+    "parameter": "Leg-axis angle / separation / overlap ratio",
+    "value": "≤25° / 4–35 m / ≥0.45",
+    "role": "Confirmation of two distinct legs"
+  },
+  {
+    "module": "Lateral trajectory adjustment",
+    "parameter": "Search radius / maximum direction difference",
+    "value": "15 m / 28°",
+    "role": "Same-road candidate screening"
+  },
+  {
+    "module": "Lateral trajectory adjustment",
+    "parameter": "Maximum tangential / normal offset",
+    "value": "7 / 13 m",
+    "role": "Limits on local correspondence"
+  },
+  {
+    "module": "Lateral trajectory adjustment",
+    "parameter": "Minimum independent support / step factor / per-iteration displacement",
+    "value": "2 / 0.65 / 2 m",
+    "role": "Control of displacement perpendicular to the local trajectory direction"
+  },
+  {
+    "module": "Lateral trajectory adjustment",
+    "parameter": "Cumulative displacement limit for ordinary / hairpin segments",
+    "value": "8 / 5 m",
+    "role": "Limits on geometric drift"
+  },
+  {
+    "module": "Hairpin pairing",
+    "parameter": "Maximum elevation difference between nearby legs",
+    "value": "25 m",
+    "role": "Exclusion of mismatches across vertical levels"
+  },
+  {
+    "module": "Directional KDE",
+    "parameter": "Grid size / direction bins / longitudinal × transverse bandwidths",
+    "value": "2 m / 16 / 4.0×1.5 m",
+    "role": "Direction-constrained density field"
+  },
+  {
+    "module": "Skeleton extraction",
+    "parameter": "Robust normalization percentile / thresholds",
+    "value": "99.5% / 1024–4",
+    "role": "Progressive inclusion from main routes to sparse branches"
+  },
+  {
+    "module": "Skeleton extraction",
+    "parameter": "Strict / expanded corridor / minimum merging support",
+    "value": "3 / 5 m / 3",
+    "role": "Control of merging across components"
+  },
+  {
+    "module": "Gap repair",
+    "parameter": "Short-gap endpoint distance / subpath length / P90 corridor / witnesses",
+    "value": "40 m / 65 m / 10 m / 1",
+    "role": "Repair using direct raw-trajectory evidence"
+  },
+  {
+    "module": "Coverage recovery",
+    "parameter": "Long-gap endpoint distance / subpath length / minimum witnesses",
+    "value": "90 m / 140 m / 2",
+    "role": "Recovery of extended, sparsely observed routes"
+  },
+  {
+    "module": "Negative topology evidence",
+    "parameter": "Bridge length / leg-axis angle / crossing angle / lateral support",
+    "value": "35 m / 15° / 55° / 1",
+    "role": "Rejection of parallel false bridges and hairpin shortcuts"
+  },
+  {
+    "module": "Trajectory rematching",
+    "parameter": "Search radius / candidates / emission scales / transition scale",
+    "value": "45 m / 5 / 18 m, 35° / 25 m",
+    "role": "Estimation of edge-level support"
+  },
+  {
+    "module": "Geometry smoothing",
+    "parameter": "Resampling / ordinary–hairpin Gaussian scales / corridor widths",
+    "value": "0.5 m / 3.0–1.0 m / 2.5–0.8 m",
+    "role": "Smoothing within fixed topology"
+  },
+  {
+    "module": "Mainling reference methods",
+    "parameter": "Edelkamp seed interval / heading limit / cluster distance / search window / convergence",
+    "value": "50 m / 45° / 20 m / 80 m / 0.01 m",
+    "role": "Reference reconstruction"
+  },
+  {
+    "module": "Mainling reference methods",
+    "parameter": "Biagioni raster size / Gaussian kernel",
+    "value": "1 m / 17 pixels",
+    "role": "Density estimation"
+  },
+  {
+    "module": "Mainling reference methods",
+    "parameter": "Karagiorgou clustering distance / angular tolerance",
+    "value": "40 m / 12.5°",
+    "role": "Intersection clustering and trajectory bundling"
+  }
+]

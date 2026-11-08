@@ -1,0 +1,4293 @@
+{
+  "version": "0.5",
+  "description": "v0.5 smooth road network: preserve validated topology and add strong whole-road-chain smoothing, fixed junctions, gap-repair edges smoothed with their chains, and hairpin shape constraints.",
+  "stages": {
+    "S1": {
+      "title": "S1 KML track extraction",
+      "script": "S1_extract_kml.py",
+      "parameters": [
+        {
+          "dest": "recursive",
+          "option": "--recursive",
+          "options": [
+            "--recursive",
+            "--no-recursive"
+          ],
+          "default": true,
+          "help": "Search subdirectories recursively for KML files",
+          "required": false,
+          "kind": "bool_optional",
+          "positive_option": "--recursive",
+          "negative_option": "--no-recursive"
+        },
+        {
+          "dest": "min_points",
+          "option": "--min-points",
+          "options": [
+            "--min-points"
+          ],
+          "default": 2,
+          "help": "Minimum valid coordinate points required to output a gx:Track",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "no_combined",
+          "option": "--no-combined",
+          "options": [
+            "--no-combined"
+          ],
+          "default": false,
+          "help": "Skip all_observed_points.csv; write only individual track CSVs and the manifest",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        }
+      ]
+    },
+    "S2": {
+      "title": "S2 Track cleaning",
+      "script": "S2_clean_tracks.py",
+      "parameters": [
+        {
+          "dest": "no_boundary",
+          "option": "--no-boundary",
+          "options": [
+            "--no-boundary"
+          ],
+          "default": false,
+          "help": "Skip boundary clipping",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "input_pattern",
+          "option": "--input-pattern",
+          "options": [
+            "--input-pattern"
+          ],
+          "default": "*__gxtrack.csv",
+          "help": "Input track CSV filename pattern; use *.csv for test files",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "boundary_crs",
+          "option": "--boundary-crs",
+          "options": [
+            "--boundary-crs"
+          ],
+          "default": null,
+          "help": "Explicit boundary CRS when the .prj file is missing",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "metric_crs",
+          "option": "--metric-crs",
+          "options": [
+            "--metric-crs"
+          ],
+          "default": null,
+          "help": "Manual metric CRS with --no-boundary, e.g. EPSG:32647",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "boundary_buffer_m",
+          "option": "--boundary-buffer-m",
+          "options": [
+            "--boundary-buffer-m"
+          ],
+          "default": 0.0,
+          "help": "Boundary buffer distance",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "boundary_context_points",
+          "option": "--boundary-context-points",
+          "options": [
+            "--boundary-context-points"
+          ],
+          "default": 0,
+          "help": "Number of outside points retained before and after each continuous in-boundary segment",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_points",
+          "option": "--min-points",
+          "options": [
+            "--min-points"
+          ],
+          "default": 5,
+          "help": "Minimum point count per final segment",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_length_m",
+          "option": "--min-length-m",
+          "options": [
+            "--min-length-m"
+          ],
+          "default": 20.0,
+          "help": "Minimum length per final segment",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "max_time_gap_s",
+          "option": "--max-time-gap-s",
+          "options": [
+            "--max-time-gap-s"
+          ],
+          "default": 1800.0,
+          "help": "Hard time-gap split threshold",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hard_step_m",
+          "option": "--hard-step-m",
+          "options": [
+            "--hard-step-m"
+          ],
+          "default": 300.0,
+          "help": "Absolute adjacent-point distance split threshold",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "adaptive_step_floor_m",
+          "option": "--adaptive-step-floor-m",
+          "options": [
+            "--adaptive-step-floor-m"
+          ],
+          "default": 80.0,
+          "help": "Minimum candidate step length for local adaptive distance breaks",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_speed_mps",
+          "option": "--hiking-speed-mps",
+          "options": [
+            "--hiking-speed-mps"
+          ],
+          "default": 5.0,
+          "help": "Threshold for flagging high hiking speeds",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_hard_speed_mps",
+          "option": "--hiking-hard-speed-mps",
+          "options": [
+            "--hiking-hard-speed-mps"
+          ],
+          "default": 8.0,
+          "help": "Edge speed threshold for clear inconsistency with hiking",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_median_max_mps",
+          "option": "--hiking-median-max-mps",
+          "options": [
+            "--hiking-median-max-mps"
+          ],
+          "default": 3.5,
+          "help": "Maximum median speed for final hiking segments",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_p90_max_mps",
+          "option": "--hiking-p90-max-mps",
+          "options": [
+            "--hiking-p90-max-mps"
+          ],
+          "default": 5.0,
+          "help": "Maximum P90 speed for final hiking segments",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_high_fraction_max",
+          "option": "--hiking-high-fraction-max",
+          "options": [
+            "--hiking-high-fraction-max"
+          ],
+          "default": 0.1,
+          "help": "Maximum high-speed edge fraction for final hiking segments",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hiking_min_valid_fraction",
+          "option": "--hiking-min-valid-fraction",
+          "options": [
+            "--hiking-min-valid-fraction"
+          ],
+          "default": 0.3,
+          "help": "Minimum fraction of edges with valid timing required for speed-based segment rejection",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "spike_zero_dt_leg_m",
+          "option": "--spike-zero-dt-leg-m",
+          "options": [
+            "--spike-zero-dt-leg-m"
+          ],
+          "default": 20.0,
+          "help": "Minimum candidate edge distance for same-second spikes",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "elevation_spike_min_m",
+          "option": "--elevation-spike-min-m",
+          "options": [
+            "--elevation-spike-min-m"
+          ],
+          "default": 8.0,
+          "help": "Minimum residual for isolated elevation spikes",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "vertical_speed_mps",
+          "option": "--vertical-speed-mps",
+          "options": [
+            "--vertical-speed-mps"
+          ],
+          "default": 2.0,
+          "help": "Supporting vertical speed threshold for elevation anomalies",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "elevation_grade_hard",
+          "option": "--elevation-grade-hard",
+          "options": [
+            "--elevation-grade-hard"
+          ],
+          "default": 2.0,
+          "help": "Supporting apparent grade threshold for elevation anomalies",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "near_same_xy_jump_m",
+          "option": "--near-same-xy-jump-m",
+          "options": [
+            "--near-same-xy-jump-m"
+          ],
+          "default": 10.0,
+          "help": "Elevation jump threshold at nearly identical positions",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "elevation_short_gap_points",
+          "option": "--elevation-short-gap-points",
+          "options": [
+            "--elevation-short-gap-points"
+          ],
+          "default": 5,
+          "help": "Maximum consecutive missing elevation points allowed for along-track interpolation",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dem_trust_max_grade",
+          "option": "--dem-trust-max-grade",
+          "options": [
+            "--dem-trust-max-grade"
+          ],
+          "default": 1.0,
+          "help": "Maximum local grade for automatic DEM-assisted repair",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dem_bias_min_samples",
+          "option": "--dem-bias-min-samples",
+          "options": [
+            "--dem-bias-min-samples"
+          ],
+          "default": 15,
+          "help": "Minimum samples required to estimate GPS-DEM vertical bias",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "no_dem_fill",
+          "option": "--no-dem-fill",
+          "options": [
+            "--no-dem-fill"
+          ],
+          "default": false,
+          "help": "Skip DEM filling of remaining missing elevations",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "no_gpkg",
+          "option": "--no-gpkg",
+          "options": [
+            "--no-gpkg"
+          ],
+          "default": false,
+          "help": "Skip GPKG output",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        }
+      ]
+    },
+    "S3": {
+      "title": "S3 Activity-zone detection",
+      "script": "S3_activity_zone_filter.py",
+      "parameters": [
+        {
+          "dest": "cell_size_m",
+          "option": "--cell-size-m",
+          "options": [
+            "--cell-size-m"
+          ],
+          "default": 10.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "direction_bins",
+          "option": "--direction-bins",
+          "options": [
+            "--direction-bins"
+          ],
+          "default": 12,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "local_window_points",
+          "option": "--local-window-points",
+          "options": [
+            "--local-window-points"
+          ],
+          "default": 5,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_cell_points",
+          "option": "--min-cell-points",
+          "options": [
+            "--min-cell-points"
+          ],
+          "default": 20,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_cell_tracks",
+          "option": "--min-cell-tracks",
+          "options": [
+            "--min-cell-tracks"
+          ],
+          "default": 3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "entropy_min",
+          "option": "--entropy-min",
+          "options": [
+            "--entropy-min"
+          ],
+          "default": 0.62,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "endpoint_fraction_min",
+          "option": "--endpoint-fraction-min",
+          "options": [
+            "--endpoint-fraction-min"
+          ],
+          "default": 0.08,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "low_efficiency_fraction_min",
+          "option": "--low-efficiency-fraction-min",
+          "options": [
+            "--low-efficiency-fraction-min"
+          ],
+          "default": 0.35,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "low_speed_fraction_min",
+          "option": "--low-speed-fraction-min",
+          "options": [
+            "--low-speed-fraction-min"
+          ],
+          "default": 0.2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "stable_dominant_fraction_min",
+          "option": "--stable-dominant-fraction-min",
+          "options": [
+            "--stable-dominant-fraction-min"
+          ],
+          "default": 0.55,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_track_min",
+          "option": "--curve-track-min",
+          "options": [
+            "--curve-track-min"
+          ],
+          "default": 3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "curve_elongation_min",
+          "option": "--curve-elongation-min",
+          "options": [
+            "--curve-elongation-min"
+          ],
+          "default": 0.48,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_efficiency_min",
+          "option": "--curve-efficiency-min",
+          "options": [
+            "--curve-efficiency-min"
+          ],
+          "default": 0.3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_endpoint_fraction_max",
+          "option": "--curve-endpoint-fraction-max",
+          "options": [
+            "--curve-endpoint-fraction-max"
+          ],
+          "default": 0.15,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_low_speed_fraction_max",
+          "option": "--curve-low-speed-fraction-max",
+          "options": [
+            "--curve-low-speed-fraction-max"
+          ],
+          "default": 0.3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "curve_bridge_radius_cells",
+          "option": "--curve-bridge-radius-cells",
+          "options": [
+            "--curve-bridge-radius-cells"
+          ],
+          "default": 2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "curve_bridge_min_stable_neighbors",
+          "option": "--curve-bridge-min-stable-neighbors",
+          "options": [
+            "--curve-bridge-min-stable-neighbors"
+          ],
+          "default": 2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "curve_corridor_weight",
+          "option": "--curve-corridor-weight",
+          "options": [
+            "--curve-corridor-weight"
+          ],
+          "default": 0.9,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "internal_activity_weight",
+          "option": "--internal-activity-weight",
+          "options": [
+            "--internal-activity-weight"
+          ],
+          "default": 0.1,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "boundary_activity_weight",
+          "option": "--boundary-activity-weight",
+          "options": [
+            "--boundary-activity-weight"
+          ],
+          "default": 0.65,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "coherent_passage_weight",
+          "option": "--coherent-passage-weight",
+          "options": [
+            "--coherent-passage-weight"
+          ],
+          "default": 0.85,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "mainroad_min_weight",
+          "option": "--mainroad-min-weight",
+          "options": [
+            "--mainroad-min-weight"
+          ],
+          "default": 0.35,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_zone_cells",
+          "option": "--min-zone-cells",
+          "options": [
+            "--min-zone-cells"
+          ],
+          "default": 2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "max_output_link_m",
+          "option": "--max-output-link-m",
+          "options": [
+            "--max-output-link-m"
+          ],
+          "default": 0.0,
+          "help": "Maximum distance between adjacent road-candidate points; use 0 in vehicle mode to disable distance splitting",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_size_m",
+          "option": "--tile-size-m",
+          "options": [
+            "--tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "no_gpkg",
+          "option": "--no-gpkg",
+          "options": [
+            "--no-gpkg"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "clear_output",
+          "option": "--clear-output",
+          "options": [
+            "--clear-output"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "activity_corridor_min_tracks",
+          "option": "--activity-corridor-min-tracks",
+          "options": [
+            "--activity-corridor-min-tracks"
+          ],
+          "default": 3,
+          "help": "Minimum independent raw tracks for primary through-corridors in activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "activity_corridor_gate_tolerance_m",
+          "option": "--activity-corridor-gate-tolerance-m",
+          "options": [
+            "--activity-corridor-gate-tolerance-m"
+          ],
+          "default": 10.0,
+          "help": "Gate-point clustering tolerance for through-corridors in activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_corridor_max_axis_spread_deg",
+          "option": "--activity-corridor-max-axis-spread-deg",
+          "options": [
+            "--activity-corridor-max-axis-spread-deg"
+          ],
+          "default": 30.0,
+          "help": "Maximum axial angular dispersion for through-corridors in activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_corridor_min_efficiency",
+          "option": "--activity-corridor-min-efficiency",
+          "options": [
+            "--activity-corridor-min-efficiency"
+          ],
+          "default": 0.55,
+          "help": "Minimum gate-to-gate path efficiency for through-corridors in activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_corridor_weight",
+          "option": "--activity-corridor-weight",
+          "options": [
+            "--activity-corridor-weight"
+          ],
+          "default": 0.95,
+          "help": "Road weight for structurally validated primary through-corridors in activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_backbone_min_tracks",
+          "option": "--activity-backbone-min-tracks",
+          "options": [
+            "--activity-backbone-min-tracks"
+          ],
+          "default": 3,
+          "help": "Minimum independent raw-track contributions for the activity-zone primary skeleton",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "activity_backbone_gate_cluster_m",
+          "option": "--activity-backbone-gate-cluster-m",
+          "options": [
+            "--activity-backbone-gate-cluster-m"
+          ],
+          "default": 15.0,
+          "help": "Maximum entrance/exit clustering scale for the activity-zone primary skeleton",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_backbone_weight",
+          "option": "--activity-backbone-weight",
+          "options": [
+            "--activity-backbone-weight"
+          ],
+          "default": 1.0,
+          "help": "Road weight assigned to the evidence-supported activity-zone primary skeleton",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_backbone_promote_radius_m",
+          "option": "--activity-backbone-promote-radius-m",
+          "options": [
+            "--activity-backbone-promote-radius-m"
+          ],
+          "default": 5.0,
+          "help": "Radius around the activity-zone primary skeleton within which raw tracks are promoted to road candidates",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        }
+      ]
+    },
+    "S4": {
+      "title": "S4 Hairpin consensus gravity concentration",
+      "script": "S4_uturn_consensus_gravity.py",
+      "parameters": [
+        {
+          "dest": "projected_crs",
+          "option": "--projected-crs",
+          "options": [
+            "--projected-crs"
+          ],
+          "default": "auto",
+          "help": "Inherit input metric_crs by default; fail if an explicit CRS differs",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "iterations",
+          "option": "--iterations",
+          "options": [
+            "--iterations"
+          ],
+          "default": 4,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "search_radius_m",
+          "option": "--search-radius-m",
+          "options": [
+            "--search-radius-m"
+          ],
+          "default": 15.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_support_tracks",
+          "option": "--min-support-tracks",
+          "options": [
+            "--min-support-tracks"
+          ],
+          "default": 2,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "min_road_weight",
+          "option": "--min-road-weight",
+          "options": [
+            "--min-road-weight"
+          ],
+          "default": 0.35,
+          "help": "Verify the minimum road weight in S3 road_candidate_points.csv; fail on violations to prevent activity-zone tracks from reentering gravity adjustment",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "edge_support_radius_m",
+          "option": "--edge-support-radius-m",
+          "options": [
+            "--edge-support-radius-m"
+          ],
+          "default": 8.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "edge_min_supported_fraction",
+          "option": "--edge-min-supported-fraction",
+          "options": [
+            "--edge-min-supported-fraction"
+          ],
+          "default": 0.45,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_cluster_tracks",
+          "option": "--uturn-min-cluster-tracks",
+          "options": [
+            "--uturn-min-cluster-tracks"
+          ],
+          "default": 3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "uturn_anchor_max_move_m",
+          "option": "--uturn-anchor-max-move-m",
+          "options": [
+            "--uturn-anchor-max-move-m"
+          ],
+          "default": 18.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_protection_buffer_m",
+          "option": "--uturn-protection-buffer-m",
+          "options": [
+            "--uturn-protection-buffer-m"
+          ],
+          "default": 8.0,
+          "help": "Protection buffer radius for validated hairpins; reduced to 8m in v0.5 to limit overprotection",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "gravity_tile_size_m",
+          "option": "--gravity-tile-size-m",
+          "options": [
+            "--gravity-tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "Physical tile side length for gravity queries; should match KDE --tile-size-m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "gravity_tile_origin_x",
+          "option": "--gravity-tile-origin-x",
+          "options": [
+            "--gravity-tile-origin-x"
+          ],
+          "default": null,
+          "help": "Optional lower-left tile origin X; use KDE report bounds[0] for exact KDE alignment",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "gravity_tile_origin_y",
+          "option": "--gravity-tile-origin-y",
+          "options": [
+            "--gravity-tile-origin-y"
+          ],
+          "default": null,
+          "help": "Optional lower-left tile origin Y; use KDE report bounds[1] for exact KDE alignment",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "gravity_query_batch_size",
+          "option": "--gravity-query-batch-size",
+          "options": [
+            "--gravity-query-batch-size"
+          ],
+          "default": 50000,
+          "help": "Maximum query-point batch size for dense tiles",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "no_gpkg",
+          "option": "--no-gpkg",
+          "options": [
+            "--no-gpkg"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "uturn_min_distinct_original_tracks",
+          "option": "--uturn-min-distinct-original-tracks",
+          "options": [
+            "--uturn-min-distinct-original-tracks"
+          ],
+          "default": 3,
+          "help": "Minimum independent contributing raw tracks for hairpin structure validation",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "uturn_max_leg_axis_difference_deg",
+          "option": "--uturn-max-leg-axis-difference-deg",
+          "options": [
+            "--uturn-max-leg-axis-difference-deg"
+          ],
+          "default": 25.0,
+          "help": "Maximum undirected axial angle between hairpin legs",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_opposite_direction_score",
+          "option": "--uturn-min-opposite-direction-score",
+          "options": [
+            "--uturn-min-opposite-direction-score"
+          ],
+          "default": 0.7,
+          "help": "Minimum opposing-motion score for hairpin legs",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_apex_turn_concentration",
+          "option": "--uturn-min-apex-turn-concentration",
+          "options": [
+            "--uturn-min-apex-turn-concentration"
+          ],
+          "default": 0.5,
+          "help": "Minimum fraction of hairpin turning concentrated near the apex",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_leg_separation_m",
+          "option": "--uturn-min-leg-separation-m",
+          "options": [
+            "--uturn-min-leg-separation-m"
+          ],
+          "default": 4.0,
+          "help": "Minimum plausible separation between hairpin legs",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_max_leg_separation_m",
+          "option": "--uturn-max-leg-separation-m",
+          "options": [
+            "--uturn-max-leg-separation-m"
+          ],
+          "default": 35.0,
+          "help": "Maximum plausible separation between hairpin legs",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_leg_straightness",
+          "option": "--uturn-min-leg-straightness",
+          "options": [
+            "--uturn-min-leg-straightness"
+          ],
+          "default": 0.86,
+          "help": "Minimum straightness of both hairpin legs to reject ordinary broad curves/loops",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_min_leg_overlap_ratio",
+          "option": "--uturn-min-leg-overlap-ratio",
+          "options": [
+            "--uturn-min-leg-overlap-ratio"
+          ],
+          "default": 0.45,
+          "help": "Minimum longitudinal overlap fraction between nearly parallel hairpin legs",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_max_secondary_turn_peak_ratio",
+          "option": "--uturn-max-secondary-turn-peak-ratio",
+          "options": [
+            "--uturn-max-secondary-turn-peak-ratio"
+          ],
+          "default": 0.6,
+          "help": "Maximum secondary-turning/main-apex peak ratio, requiring a single dominant apex",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_activity_min_tracks",
+          "option": "--uturn-activity-min-tracks",
+          "options": [
+            "--uturn-activity-min-tracks"
+          ],
+          "default": 4,
+          "help": "Minimum distinct raw tracks to validate hairpins within activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "uturn_activity_min_apex_concentration",
+          "option": "--uturn-activity-min-apex-concentration",
+          "options": [
+            "--uturn-activity-min-apex-concentration"
+          ],
+          "default": 0.68,
+          "help": "Minimum apex turning concentration for hairpins within activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_activity_max_secondary_peak_ratio",
+          "option": "--uturn-activity-max-secondary-peak-ratio",
+          "options": [
+            "--uturn-activity-max-secondary-peak-ratio"
+          ],
+          "default": 0.5,
+          "help": "Maximum secondary turning-peak ratio for hairpins within activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_activity_min_leg_straightness",
+          "option": "--uturn-activity-min-leg-straightness",
+          "options": [
+            "--uturn-activity-min-leg-straightness"
+          ],
+          "default": 0.9,
+          "help": "Stricter minimum hairpin-leg straightness within activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_activity_min_leg_overlap_ratio",
+          "option": "--uturn-activity-min-leg-overlap-ratio",
+          "options": [
+            "--uturn-activity-min-leg-overlap-ratio"
+          ],
+          "default": 0.55,
+          "help": "Stricter minimum longitudinal overlap fraction of hairpin legs within activity zones",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        }
+      ]
+    },
+    "S5": {
+      "title": "S5 Directional anisotropic KDE",
+      "script": "S5_directional_kde.py",
+      "parameters": [
+        {
+          "dest": "cell_size_m",
+          "option": "--cell-size-m",
+          "options": [
+            "--cell-size-m"
+          ],
+          "default": 2.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "sigma_along_m",
+          "option": "--sigma-along-m",
+          "options": [
+            "--sigma-along-m"
+          ],
+          "default": 4.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "sigma_cross_m",
+          "option": "--sigma-cross-m",
+          "options": [
+            "--sigma-cross-m"
+          ],
+          "default": 1.5,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "orientation_bins",
+          "option": "--orientation-bins",
+          "options": [
+            "--orientation-bins"
+          ],
+          "default": 16,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "max_link_m",
+          "option": "--max-link-m",
+          "options": [
+            "--max-link-m"
+          ],
+          "default": 0.0,
+          "help": "Maximum distance between adjacent KDE track points; use 0 in vehicle mode to disable distance splitting",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_road_weight",
+          "option": "--min-road-weight",
+          "options": [
+            "--min-road-weight"
+          ],
+          "default": 0.35,
+          "help": "Use only main-road candidate points whose road_extraction_weight is at least this value",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "require_mainroad_candidate",
+          "option": "--require-mainroad-candidate",
+          "options": [
+            "--require-mainroad-candidate"
+          ],
+          "default": false,
+          "help": "Also require mainroad_candidate=True when the input contains this field",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "tile_size_m",
+          "option": "--tile-size-m",
+          "options": [
+            "--tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "Physical KDE tile side length in meters; default 560 m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_origin_x",
+          "option": "--tile-origin-x",
+          "options": [
+            "--tile-origin-x"
+          ],
+          "default": null,
+          "help": "Optional lower-left KDE tile origin X for alignment with gravity tiles",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_origin_y",
+          "option": "--tile-origin-y",
+          "options": [
+            "--tile-origin-y"
+          ],
+          "default": null,
+          "help": "Optional lower-left KDE tile origin Y for alignment with gravity tiles",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_size",
+          "option": "--tile-size",
+          "options": [
+            "--tile-size"
+          ],
+          "default": 0,
+          "help": "Optional tile size in pixels; positive values override --tile-size-m for compatibility with older commands",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "distance_max_m",
+          "option": "--distance-max-m",
+          "options": [
+            "--distance-max-m"
+          ],
+          "default": 10.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "block_size",
+          "option": "--block-size",
+          "options": [
+            "--block-size"
+          ],
+          "default": 256,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "all_touched",
+          "option": "--all-touched",
+          "options": [
+            "--all-touched"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "no_clear_output",
+          "option": "--no-clear-output",
+          "options": [
+            "--no-clear-output"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        }
+      ]
+    },
+    "S6": {
+      "title": "S6 Route-locked skeleton",
+      "script": "S6_route_locked_skeleton.py",
+      "parameters": [
+        {
+          "dest": "activity_layer",
+          "option": "--activity-layer",
+          "options": [
+            "--activity-layer"
+          ],
+          "default": "activity_suppression_zones",
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "protected_activity_layer",
+          "option": "--protected-activity-layer",
+          "options": [
+            "--protected-activity-layer"
+          ],
+          "default": "protected_road_corridors",
+          "help": "Protected stable/curved road corridor layer from S3 v2",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "protected_corridor_buffer_m",
+          "option": "--protected-corridor-buffer-m",
+          "options": [
+            "--protected-corridor-buffer-m"
+          ],
+          "default": 0.0,
+          "help": "Extra protected-corridor buffer; default 0, optionally 1-2 m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_zone_pad_m",
+          "option": "--activity-zone-pad-m",
+          "options": [
+            "--activity-zone-pad-m"
+          ],
+          "default": 0.0,
+          "help": "Extra query buffer when selecting local activity-zone features",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "activity_suppression_buffer_m",
+          "option": "--activity-suppression-buffer-m",
+          "options": [
+            "--activity-suppression-buffer-m"
+          ],
+          "default": 0.0,
+          "help": "Extra activity-suppression geometry buffer; default 0 to preserve entrance roads",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_road_weight",
+          "option": "--min-road-weight",
+          "options": [
+            "--min-road-weight"
+          ],
+          "default": 0.35,
+          "help": "Minimum road weight when gravity_points lacks gravity_kde_include",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "tile_size_m",
+          "option": "--tile-size-m",
+          "options": [
+            "--tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "Core tile side length in m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "halo_m",
+          "option": "--halo-m",
+          "options": [
+            "--halo-m"
+          ],
+          "default": null,
+          "help": "Tile halo buffer; estimated automatically from connection parameters by default",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "local_vector_pad_m",
+          "option": "--local-vector-pad-m",
+          "options": [
+            "--local-vector-pad-m"
+          ],
+          "default": 20.0,
+          "help": "Extra search distance for local points/consensus lines",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "progress_every",
+          "option": "--progress-every",
+          "options": [
+            "--progress-every"
+          ],
+          "default": 50,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "strict_corridor_m",
+          "option": "--strict-corridor-m",
+          "options": [
+            "--strict-corridor-m"
+          ],
+          "default": 3.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "relaxed_corridor_m",
+          "option": "--relaxed-corridor-m",
+          "options": [
+            "--relaxed-corridor-m"
+          ],
+          "default": 5.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_min_tracks",
+          "option": "--support-rescue-min-tracks",
+          "options": [
+            "--support-rescue-min-tracks"
+          ],
+          "default": 2,
+          "help": "Minimum independent tracks for exact single-pixel support rescue",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_max_distance_m",
+          "option": "--support-rescue-max-distance-m",
+          "options": [
+            "--support-rescue-max-distance-m"
+          ],
+          "default": 5.0,
+          "help": "Maximum rescue-pixel distance from raw tracks",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_kde_min_level",
+          "option": "--support-rescue-kde-min-level",
+          "options": [
+            "--support-rescue-kde-min-level"
+          ],
+          "default": 1,
+          "help": "Minimum scaled KDE level for rescue pixels",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_dilation",
+          "option": "--support-rescue-dilation",
+          "options": [
+            "--support-rescue-dilation"
+          ],
+          "default": 1,
+          "help": "Rescue skeleton seed dilation iterations",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_min_component_pixels",
+          "option": "--support-rescue-min-component-pixels",
+          "options": [
+            "--support-rescue-min-component-pixels"
+          ],
+          "default": 6,
+          "help": "Minimum connected pixels in a rescue line",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dense_rescue_radius_m",
+          "option": "--dense-rescue-radius-m",
+          "options": [
+            "--dense-rescue-radius-m"
+          ],
+          "default": 6.0,
+          "help": "Radius for aggregated neighborhood track evidence",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dense_rescue_support_sum_min",
+          "option": "--dense-rescue-support-sum-min",
+          "options": [
+            "--dense-rescue-support-sum-min"
+          ],
+          "default": 10.0,
+          "help": "Minimum total neighborhood support",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dense_rescue_occupied_pixels_min",
+          "option": "--dense-rescue-occupied-pixels-min",
+          "options": [
+            "--dense-rescue-occupied-pixels-min"
+          ],
+          "default": 6.0,
+          "help": "Minimum neighborhood pixels with support>0",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dense_rescue_near_support_min",
+          "option": "--dense-rescue-near-support-min",
+          "options": [
+            "--dense-rescue-near-support-min"
+          ],
+          "default": 1,
+          "help": "Minimum neighborhood peak support; 1 detects laterally dispersed tracks",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dense_rescue_closing_m",
+          "option": "--dense-rescue-closing-m",
+          "options": [
+            "--dense-rescue-closing-m"
+          ],
+          "default": 4.0,
+          "help": "Closing distance for aggregated evidence to fill small gaps within track bundles",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dense_rescue_connection_m",
+          "option": "--dense-rescue-connection-m",
+          "options": [
+            "--dense-rescue-connection-m"
+          ],
+          "default": 8.0,
+          "help": "Maximum connection distance from rescue components to the existing primary skeleton",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "lock_clear_buffer_m",
+          "option": "--lock-clear-buffer-m",
+          "options": [
+            "--lock-clear-buffer-m"
+          ],
+          "default": 10.0,
+          "help": "Clear the old skeleton only within this distance of the locked medoid path to preserve real roads elsewhere in the lock zone",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "bridge_merge_support_min",
+          "option": "--bridge-merge-support-min",
+          "options": [
+            "--bridge-merge-support-min"
+          ],
+          "default": 3,
+          "help": "Minimum independent-track support for low-threshold merges of existing components; increase for false hairpin merges",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "bridge_evidence_dilation",
+          "option": "--bridge-evidence-dilation",
+          "options": [
+            "--bridge-evidence-dilation"
+          ],
+          "default": 0,
+          "help": "Merge-evidence support raster dilation iterations; 0 is most conservative against merging adjacent hairpin arms",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "route_corridor_m",
+          "option": "--route-corridor-m",
+          "options": [
+            "--route-corridor-m"
+          ],
+          "default": 4.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_pair_tracks",
+          "option": "--min-pair-tracks",
+          "options": [
+            "--min-pair-tracks"
+          ],
+          "default": 3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "pair_buffer_m",
+          "option": "--pair-buffer-m",
+          "options": [
+            "--pair-buffer-m"
+          ],
+          "default": 6.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "endpoint_connector_max_along_m",
+          "option": "--endpoint-connector-max-along-m",
+          "options": [
+            "--endpoint-connector-max-along-m"
+          ],
+          "default": 15.0,
+          "help": "Maximum outward connection distance along the same observed track from locked-route endpoints to the primary skeleton; v0.5 default 15m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "endpoint_connector_snap_m",
+          "option": "--endpoint-connector-snap-m",
+          "options": [
+            "--endpoint-connector-snap-m"
+          ],
+          "default": 6.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_kde_ridge_refine",
+          "option": "--disable-kde-ridge-refine",
+          "options": [
+            "--disable-kde-ridge-refine"
+          ],
+          "default": false,
+          "help": "Disable KDE ridge snapping of the global primary skeleton",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true,
+          "value_type": "bool"
+        },
+        {
+          "dest": "kde_ridge_search_radius_m",
+          "option": "--kde-ridge-search-radius-m",
+          "options": [
+            "--kde-ridge-search-radius-m"
+          ],
+          "default": 4.0,
+          "help": "Normal-direction search radius for local KDE ridges along the global primary skeleton",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_min_chain_m",
+          "option": "--kde-ridge-min-chain-m",
+          "options": [
+            "--kde-ridge-min-chain-m"
+          ],
+          "default": 16.0,
+          "help": "Optimize only degree-2 road chains at least this long",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_min_local_ratio",
+          "option": "--kde-ridge-min-local-ratio",
+          "options": [
+            "--kde-ridge-min-local-ratio"
+          ],
+          "default": 0.2,
+          "help": "Minimum ridge-candidate KDE relative to the local maximum",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_support_weight",
+          "option": "--kde-ridge-support-weight",
+          "options": [
+            "--kde-ridge-support-weight"
+          ],
+          "default": 0.25,
+          "help": "Support weight in ridge dynamic programming",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_distance_weight",
+          "option": "--kde-ridge-distance-weight",
+          "options": [
+            "--kde-ridge-distance-weight"
+          ],
+          "default": 0.25,
+          "help": "Track-distance evidence weight in ridge dynamic programming",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_offset_penalty",
+          "option": "--kde-ridge-offset-penalty",
+          "options": [
+            "--kde-ridge-offset-penalty"
+          ],
+          "default": 0.08,
+          "help": "Lateral-offset penalty",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_transition_penalty",
+          "option": "--kde-ridge-transition-penalty",
+          "options": [
+            "--kde-ridge-transition-penalty"
+          ],
+          "default": 0.16,
+          "help": "Penalty for lateral-offset changes between samples; larger values give smoother results",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_min_mean_kde_gain",
+          "option": "--kde-ridge-min-mean-kde-gain",
+          "options": [
+            "--kde-ridge-min-mean-kde-gain"
+          ],
+          "default": 0.03,
+          "help": "Minimum fractional improvement in chain-average KDE required to accept repositioning",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "kde_ridge_max_distance_m",
+          "option": "--kde-ridge-max-distance-m",
+          "options": [
+            "--kde-ridge-max-distance-m"
+          ],
+          "default": 6.0,
+          "help": "Maximum ridge-candidate distance in the original-track distance raster",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_min_local_ridge_ratio",
+          "option": "--support-rescue-min-local-ridge-ratio",
+          "options": [
+            "--support-rescue-min-local-ridge-ratio"
+          ],
+          "default": 0.45,
+          "help": "Minimum rescue-pixel KDE relative to its local peak",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_ridge_radius_m",
+          "option": "--support-rescue-ridge-radius-m",
+          "options": [
+            "--support-rescue-ridge-radius-m"
+          ],
+          "default": 6.0,
+          "help": "Radius for local rescue KDE peaks",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_max_primary_attachments",
+          "option": "--support-rescue-max-primary-attachments",
+          "options": [
+            "--support-rescue-max-primary-attachments"
+          ],
+          "default": 1,
+          "help": "Maximum primary attachments for an ordinary rescue component",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_bridge_min_support",
+          "option": "--support-rescue-bridge-min-support",
+          "options": [
+            "--support-rescue-bridge-min-support"
+          ],
+          "default": 3,
+          "help": "Minimum support to retain multi-attachment rescue as a real bridge",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "support_rescue_bridge_min_support_fraction",
+          "option": "--support-rescue-bridge-min-support-fraction",
+          "options": [
+            "--support-rescue-bridge-min-support-fraction"
+          ],
+          "default": 0.5,
+          "help": "Minimum strong-support pixel fraction in multi-attachment rescue",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "support_rescue_bridge_min_ridge_ratio",
+          "option": "--support-rescue-bridge-min-ridge-ratio",
+          "options": [
+            "--support-rescue-bridge-min-ridge-ratio"
+          ],
+          "default": 0.65,
+          "help": "Median local KDE ridge ratio required to retain multi-attachment rescue",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_endpoint_connector_cycle_filter",
+          "option": "--disable-endpoint-connector-cycle-filter",
+          "options": [
+            "--disable-endpoint-connector-cycle-filter"
+          ],
+          "default": false,
+          "help": "Disable cycle-risk filtering before writing endpoint connectors",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true,
+          "value_type": "bool"
+        },
+        {
+          "dest": "disable_auxiliary_leaf_only",
+          "option": "--disable-auxiliary-leaf-only",
+          "options": [
+            "--disable-auxiliary-leaf-only"
+          ],
+          "default": false,
+          "help": "Disable the leaf-only restriction for single-track auxiliary components",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true,
+          "value_type": "bool"
+        },
+        {
+          "dest": "auxiliary_max_primary_attachments",
+          "option": "--auxiliary-max-primary-attachments",
+          "options": [
+            "--auxiliary-max-primary-attachments"
+          ],
+          "default": 1,
+          "help": "Maximum primary attachments for an auxiliary component",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "auxiliary_max_primary_contact_fraction",
+          "option": "--auxiliary-max-primary-contact-fraction",
+          "options": [
+            "--auxiliary-max-primary-contact-fraction"
+          ],
+          "default": 0.25,
+          "help": "Remove an auxiliary component as a duplicate side line when its contact fraction along primary exceeds this value",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "threshold_mode",
+          "option": "--threshold-mode",
+          "options": [
+            "--threshold-mode"
+          ],
+          "default": "active_percentile",
+          "help": "Reference method for converting float KDE to 0-1024 threshold levels",
+          "required": false,
+          "kind": "choice",
+          "choices": [
+            "active_percentile",
+            "legacy_global_max"
+          ]
+        },
+        {
+          "dest": "threshold_percentile",
+          "option": "--threshold-percentile",
+          "options": [
+            "--threshold-percentile"
+          ],
+          "default": 99.5,
+          "help": "Percentile used in active_percentile mode",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "threshold_sample_max",
+          "option": "--threshold-sample-max",
+          "options": [
+            "--threshold-sample-max"
+          ],
+          "default": 2000000,
+          "help": "Maximum streaming samples for percentile estimation",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "threshold_reference",
+          "option": "--threshold-reference",
+          "options": [
+            "--threshold-reference"
+          ],
+          "default": null,
+          "help": "Manual float KDE reference; overrides the automatic percentile",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "thresholds",
+          "option": "--thresholds",
+          "options": [
+            "--thresholds"
+          ],
+          "default": null,
+          "help": "Comma-separated threshold levels, e.g. 1024,512,256,128,64,32,16,8,4",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "legacy_thresholds",
+          "option": "--legacy-thresholds",
+          "options": [
+            "--legacy-thresholds"
+          ],
+          "default": false,
+          "help": "Use legacy thresholds 512,256,...,4",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "activity_through_layer",
+          "option": "--activity-through-layer",
+          "options": [
+            "--activity-through-layer"
+          ],
+          "default": "activity_zone_backbones",
+          "help": "Evidence-supported activity-zone primary skeleton layer from S3 v0.5",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        }
+      ]
+    },
+    "S7": {
+      "title": "S7 Network cleanup and vectorization",
+      "script": "S7_network_cleanup.py",
+      "parameters": [
+        {
+          "dest": "activity_layer",
+          "option": "--activity-layer",
+          "options": [
+            "--activity-layer"
+          ],
+          "default": "activity_suppression_zones",
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "text"
+        },
+        {
+          "dest": "tile_size_m",
+          "option": "--tile-size-m",
+          "options": [
+            "--tile-size-m"
+          ],
+          "default": 560.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "keep_output",
+          "option": "--keep-output",
+          "options": [
+            "--keep-output"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "resume",
+          "option": "--resume",
+          "options": [
+            "--resume"
+          ],
+          "default": false,
+          "help": "Keep the output directory and reuse stage-1 pixel/evidence checkpoints",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "stage1_progress_every_tiles",
+          "option": "--stage1-progress-every-tiles",
+          "options": [
+            "--stage1-progress-every-tiles"
+          ],
+          "default": 100,
+          "help": "Stage-1 progress interval in 560m tiles read",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "stage1_chunk_pixels",
+          "option": "--stage1-chunk-pixels",
+          "options": [
+            "--stage1-chunk-pixels"
+          ],
+          "default": 1000000,
+          "help": "Pixel block size for stage-1 vectorization adjacency searches",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "stage1_progress_every_edges",
+          "option": "--stage1-progress-every-edges",
+          "options": [
+            "--stage1-progress-every-edges"
+          ],
+          "default": 10000,
+          "help": "Stage-1 skeleton-chain tracing progress interval in exits processed",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "stage1_max_node_blob_pixels",
+          "option": "--stage1-max-node-blob-pixels",
+          "options": [
+            "--stage1-max-node-blob-pixels"
+          ],
+          "default": 64,
+          "help": "Maximum contiguous node pixels collapsed into one topology node; split larger groups to avoid radial artifacts",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "stage1_max_node_blob_span_cells",
+          "option": "--stage1-max-node-blob-span-cells",
+          "options": [
+            "--stage1-max-node-blob-span-cells"
+          ],
+          "default": 8,
+          "help": "Maximum row/column span of a collapsible node cluster; split larger clusters to avoid long centroid connections",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "geometry_source",
+          "option": "--geometry-source",
+          "options": [
+            "--geometry-source"
+          ],
+          "default": "primary",
+          "help": "Final network geometry source; primary is strictest, auxiliary/rescue layers supply evidence only",
+          "required": false,
+          "kind": "choice",
+          "choices": [
+            "primary",
+            "primary_rescued",
+            "union"
+          ]
+        },
+        {
+          "dest": "uturn_core_buffer_m",
+          "option": "--uturn-core-buffer-m",
+          "options": [
+            "--uturn-core-buffer-m"
+          ],
+          "default": 4.0,
+          "help": "Hairpin consensus centerline core protection radius; retain digital-cycle edges inside the core and smooth conservatively",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_context_buffer_m",
+          "option": "--uturn-context-buffer-m",
+          "options": [
+            "--uturn-context-buffer-m"
+          ],
+          "default": 10.0,
+          "help": "Hairpin context protection radius for pruning; does not block digital-cycle cleanup outside the core",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "no_thin_geometry",
+          "option": "--no-thin-geometry",
+          "options": [
+            "--no-thin-geometry"
+          ],
+          "default": false,
+          "help": "Disable pixel thinning; discouraged because 2x2 rectangular cycles may remain",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "thin_halo_pixels",
+          "option": "--thin-halo-pixels",
+          "options": [
+            "--thin-halo-pixels"
+          ],
+          "default": 2,
+          "help": "Boundary overlap pixels for tiled thinning",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "artifact_loop_max_m",
+          "option": "--artifact-loop-max-m",
+          "options": [
+            "--artifact-loop-max-m"
+          ],
+          "default": 50.0,
+          "help": "Maximum candidate small digital-cycle perimeter; try directional diagonal collapse before removing weak edges",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "artifact_loop_max_span_m",
+          "option": "--artifact-loop-max-span-m",
+          "options": [
+            "--artifact-loop-max-span-m"
+          ],
+          "default": 18.0,
+          "help": "Maximum bounding span of small raster digital cycles to break",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "artifact_loop_rounds",
+          "option": "--artifact-loop-rounds",
+          "options": [
+            "--artifact-loop-rounds"
+          ],
+          "default": 8,
+          "help": "Batch cleanup rounds for small digital cycles",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--artifact-fallback-loop-max-m",
+          "dest": "artifact_fallback_loop_max_m",
+          "options": [
+            "--artifact-fallback-loop-max-m"
+          ],
+          "default": 28.0,
+          "help": "Maximum cycle perimeter for geometric fallback deletion without positive duplicate evidence; v0.5 handles only tiny pseudo-cycles",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--artifact-fallback-loop-max-span-m",
+          "dest": "artifact_fallback_loop_max_span_m",
+          "options": [
+            "--artifact-fallback-loop-max-span-m"
+          ],
+          "default": 8.0,
+          "help": "Maximum cycle span for geometric fallback deletion without positive duplicate evidence; v0.5 handles only tiny pseudo-cycles",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "no_directional_loop_collapse",
+          "option": "--no-directional-loop-collapse",
+          "options": [
+            "--no-directional-loop-collapse"
+          ],
+          "default": false,
+          "help": "Disable directional diagonal collapse; enabled by default",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "directional_loop_max_angle_deg",
+          "option": "--directional-loop-max-angle-deg",
+          "options": [
+            "--directional-loop-max-angle-deg"
+          ],
+          "default": 30.0,
+          "help": "Maximum angle between external road directions at digital-cycle ends and the centerline chord",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "directional_loop_evidence_distance_m",
+          "option": "--directional-loop-evidence-distance-m",
+          "options": [
+            "--directional-loop-evidence-distance-m"
+          ],
+          "default": 6.0,
+          "help": "Raw-track distance evidence threshold for directional diagonal candidates",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "directional_loop_min_evidence_fraction",
+          "option": "--directional-loop-min-evidence-fraction",
+          "options": [
+            "--directional-loop-min-evidence-fraction"
+          ],
+          "default": 0.6,
+          "help": "Minimum valid track/KDE evidence fraction along directional diagonal candidates",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_micro_gap_repair",
+          "option": "--disable-micro-gap-repair",
+          "options": [
+            "--disable-micro-gap-repair"
+          ],
+          "default": false,
+          "help": "Disable evidence-constrained short-gap repair within 10m",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "micro_gap_max_missing_pixels",
+          "option": "--micro-gap-max-missing-pixels",
+          "options": [
+            "--micro-gap-max-missing-pixels"
+          ],
+          "default": 0,
+          "help": "Maximum consecutive missing pixels; 0 derives the limit from 10m and actual raster resolution",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "micro_gap_max_endpoint_distance_cells",
+          "option": "--micro-gap-max-endpoint-distance-cells",
+          "options": [
+            "--micro-gap-max-endpoint-distance-cells"
+          ],
+          "default": 0.0,
+          "help": "Legacy pixel-distance limit; 0 disables, with the physical 10m limit used by default",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_max_distance_m",
+          "option": "--micro-gap-max-distance-m",
+          "options": [
+            "--micro-gap-max-distance-m"
+          ],
+          "default": 10.0,
+          "help": "Maximum physical distance between gap centers; default 10m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_long_threshold_m",
+          "option": "--micro-gap-long-threshold-m",
+          "options": [
+            "--micro-gap-long-threshold-m"
+          ],
+          "default": 6.0,
+          "help": "Apply stricter evidence/direction criteria beyond this length; default 6m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_long_max_angle_deg",
+          "option": "--micro-gap-long-max-angle-deg",
+          "options": [
+            "--micro-gap-long-max-angle-deg"
+          ],
+          "default": 30.0,
+          "help": "Maximum directional angle for 6-10m gaps; default 30 degrees",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_long_min_evidence_fraction",
+          "option": "--micro-gap-long-min-evidence-fraction",
+          "options": [
+            "--micro-gap-long-min-evidence-fraction"
+          ],
+          "default": 0.5,
+          "help": "Minimum evidence fraction in the missing section of 6-10m gaps; default 0.50",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "allow_long_gap_in_uturn_context",
+          "option": "--allow-long-gap-in-uturn-context",
+          "options": [
+            "--allow-long-gap-in-uturn-context"
+          ],
+          "default": false,
+          "help": "Allow >5m gap repairs in hairpin contexts; disabled by default",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "micro_gap_max_angle_deg",
+          "option": "--micro-gap-max-angle-deg",
+          "options": [
+            "--micro-gap-max-angle-deg"
+          ],
+          "default": 45.0,
+          "help": "Maximum angle between outward road directions at both ends and the connector",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_strong_angle_deg",
+          "option": "--micro-gap-strong-angle-deg",
+          "options": [
+            "--micro-gap-strong-angle-deg"
+          ],
+          "default": 20.0,
+          "help": "Strong directional constraint for one-pixel gaps without extra raster evidence",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_distance_evidence_m",
+          "option": "--micro-gap-distance-evidence-m",
+          "options": [
+            "--micro-gap-distance-evidence-m"
+          ],
+          "default": 10.0,
+          "help": "Maximum missing-pixel distance to raw tracks for valid evidence; default 10m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "micro_gap_max_repairs",
+          "option": "--micro-gap-max-repairs",
+          "options": [
+            "--micro-gap-max-repairs"
+          ],
+          "default": 20000,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "micro_gap_progress_every",
+          "option": "--micro-gap-progress-every",
+          "options": [
+            "--micro-gap-progress-every"
+          ],
+          "default": 1000,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "allow_unevidenced_two_pixel_gap",
+          "option": "--allow-unevidenced-two-pixel-gap",
+          "options": [
+            "--allow-unevidenced-two-pixel-gap"
+          ],
+          "default": false,
+          "help": "Allow very straight two-pixel gap repairs without auxiliary raster evidence",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "track_matcher",
+          "option": "--track-matcher",
+          "options": [
+            "--track-matcher"
+          ],
+          "default": "hmm",
+          "help": "",
+          "required": false,
+          "kind": "choice",
+          "choices": [
+            "hmm",
+            "nearest",
+            "none"
+          ]
+        },
+        {
+          "dest": "match_step",
+          "option": "--match-step",
+          "options": [
+            "--match-step"
+          ],
+          "default": 5,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "final_match_step",
+          "option": "--final-match-step",
+          "options": [
+            "--final-match-step"
+          ],
+          "default": 8,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "match_max_distance_m",
+          "option": "--match-max-distance-m",
+          "options": [
+            "--match-max-distance-m"
+          ],
+          "default": 45.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_max_candidates",
+          "option": "--hmm-max-candidates",
+          "options": [
+            "--hmm-max-candidates"
+          ],
+          "default": 5,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "hmm_emission_sigma_m",
+          "option": "--hmm-emission-sigma-m",
+          "options": [
+            "--hmm-emission-sigma-m"
+          ],
+          "default": 18.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_heading_sigma_deg",
+          "option": "--hmm-heading-sigma-deg",
+          "options": [
+            "--hmm-heading-sigma-deg"
+          ],
+          "default": 35.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_heading_weight",
+          "option": "--hmm-heading-weight",
+          "options": [
+            "--hmm-heading-weight"
+          ],
+          "default": 0.35,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_transition_beta_m",
+          "option": "--hmm-transition-beta-m",
+          "options": [
+            "--hmm-transition-beta-m"
+          ],
+          "default": 25.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_transition_jump_penalty",
+          "option": "--hmm-transition-jump-penalty",
+          "options": [
+            "--hmm-transition-jump-penalty"
+          ],
+          "default": 5.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "hmm_transition_mode",
+          "option": "--hmm-transition-mode",
+          "options": [
+            "--hmm-transition-mode"
+          ],
+          "default": "hybrid",
+          "help": "",
+          "required": false,
+          "kind": "choice",
+          "choices": [
+            "hybrid",
+            "exact",
+            "euclidean"
+          ]
+        },
+        {
+          "dest": "hmm_transition_exact_radius_m",
+          "option": "--hmm-transition-exact-radius-m",
+          "options": [
+            "--hmm-transition-exact-radius-m"
+          ],
+          "default": 180.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "min_road_weight",
+          "option": "--min-road-weight",
+          "options": [
+            "--min-road-weight"
+          ],
+          "default": 0.3,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "write_matched_points",
+          "option": "--write-matched-points",
+          "options": [
+            "--write-matched-points"
+          ],
+          "default": false,
+          "help": "",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "match_progress_every_tracks",
+          "option": "--match-progress-every-tracks",
+          "options": [
+            "--match-progress-every-tracks"
+          ],
+          "default": 100,
+          "help": "HMM progress interval in tracks processed",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dangle_aux_max_m",
+          "option": "--dangle-aux-max-m",
+          "options": [
+            "--dangle-aux-max-m"
+          ],
+          "default": 32.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dangle_primary_max_m",
+          "option": "--dangle-primary-max-m",
+          "options": [
+            "--dangle-primary-max-m"
+          ],
+          "default": 12.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dangle_rescued_max_m",
+          "option": "--dangle-rescued-max-m",
+          "options": [
+            "--dangle-rescued-max-m"
+          ],
+          "default": 8.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "prune_confidence",
+          "option": "--prune-confidence",
+          "options": [
+            "--prune-confidence"
+          ],
+          "default": 0.38,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "weak_component_max_m",
+          "option": "--weak-component-max-m",
+          "options": [
+            "--weak-component-max-m"
+          ],
+          "default": 45.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "weak_loop_max_m",
+          "option": "--weak-loop-max-m",
+          "options": [
+            "--weak-loop-max-m"
+          ],
+          "default": 85.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_min_distance_m",
+          "option": "--parallel-min-distance-m",
+          "options": [
+            "--parallel-min-distance-m"
+          ],
+          "default": 1.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_max_distance_m",
+          "option": "--parallel-max-distance-m",
+          "options": [
+            "--parallel-max-distance-m"
+          ],
+          "default": 6.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_max_angle_deg",
+          "option": "--parallel-max-angle-deg",
+          "options": [
+            "--parallel-max-angle-deg"
+          ],
+          "default": 12.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_min_length_m",
+          "option": "--parallel-min-length-m",
+          "options": [
+            "--parallel-min-length-m"
+          ],
+          "default": 20.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_min_overlap_ratio",
+          "option": "--parallel-min-overlap-ratio",
+          "options": [
+            "--parallel-min-overlap-ratio"
+          ],
+          "default": 0.68,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_score_ratio",
+          "option": "--parallel-score-ratio",
+          "options": [
+            "--parallel-score-ratio"
+          ],
+          "default": 0.72,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "loop_max_rounds",
+          "option": "--loop-max-rounds",
+          "options": [
+            "--loop-max-rounds"
+          ],
+          "default": 4,
+          "help": "Maximum weak-cycle batch cleanup rounds; 3-4 recommended for large areas",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "parallel_progress_every",
+          "option": "--parallel-progress-every",
+          "options": [
+            "--parallel-progress-every"
+          ],
+          "default": 1000,
+          "help": "Parallel-line detection progress interval in edges processed",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "skip_parallel_cleanup",
+          "option": "--skip-parallel-cleanup",
+          "options": [
+            "--skip-parallel-cleanup"
+          ],
+          "default": false,
+          "help": "Skip expensive duplicate parallel-line detection for quick diagnostics",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "aggressive_primary_pruning",
+          "option": "--aggressive-primary-pruning",
+          "options": [
+            "--aggressive-primary-pruning"
+          ],
+          "default": false,
+          "help": "Enable legacy evidence-based primary deletion; disabled by default to preserve skeleton routes",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "preserve_turn_deg",
+          "option": "--preserve-turn-deg",
+          "options": [
+            "--preserve-turn-deg"
+          ],
+          "default": 42.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--geometry-chain-turn-deg",
+          "dest": "geometry_chain_turn_deg",
+          "kind": "value",
+          "value_type": "float",
+          "default": 110.0,
+          "required": false,
+          "help": "Degree-2 chain merge turning-angle threshold before vector smoothing. Merge 45/90-degree steps from 2m rasters into continuous road chains while protecting hairpin cores",
+          "options": [
+            "--geometry-chain-turn-deg"
+          ]
+        },
+        {
+          "dest": "topology_progress_every",
+          "option": "--topology-progress-every",
+          "options": [
+            "--topology-progress-every"
+          ],
+          "default": 50000,
+          "help": "Degree-2 chain merge progress interval in edges processed",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "simplify_progress_every",
+          "option": "--simplify-progress-every",
+          "options": [
+            "--simplify-progress-every"
+          ],
+          "default": 10000,
+          "help": "Geometry simplification progress interval in edges processed",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "dem_progress_every",
+          "option": "--dem-progress-every",
+          "options": [
+            "--dem-progress-every"
+          ],
+          "default": 10000,
+          "help": "DEM attribution progress interval in edges processed",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "write_intermediate_bundles",
+          "option": "--write-intermediate-bundles",
+          "options": [
+            "--write-intermediate-bundles"
+          ],
+          "default": false,
+          "help": "Export GPKG/SQLite for every stage; default exports only lightweight diagnostics and the final network",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "write_diagnostic_gpkg",
+          "option": "--write-diagnostic-gpkg",
+          "options": [
+            "--write-diagnostic-gpkg"
+          ],
+          "default": false,
+          "help": "Export potentially large diagnostic GPKG files; default writes CSV only",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "smooth_iterations",
+          "option": "--smooth-iterations",
+          "options": [
+            "--smooth-iterations"
+          ],
+          "default": 2,
+          "help": "Constrained Chaikin smoothing iterations; default 2 for 2m rasters; 0 disables",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "smooth_ratio",
+          "option": "--smooth-ratio",
+          "options": [
+            "--smooth-ratio"
+          ],
+          "default": 0.25,
+          "help": "Chaikin fraction for ordinary roads; default 0.25 for 2m rasters",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "smooth_corridor_m",
+          "option": "--smooth-corridor-m",
+          "options": [
+            "--smooth-corridor-m"
+          ],
+          "default": 1.75,
+          "help": "Maximum Hausdorff offset from original primary geometry for ordinary roads; default 1.75m for 2m rasters",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_smooth_ratio",
+          "option": "--uturn-smooth-ratio",
+          "options": [
+            "--uturn-smooth-ratio"
+          ],
+          "default": 0.08,
+          "help": "Hairpin-core smoothing fraction, more conservative than ordinary roads",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_smooth_corridor_m",
+          "option": "--uturn-smooth-corridor-m",
+          "options": [
+            "--uturn-smooth-corridor-m"
+          ],
+          "default": 0.8,
+          "help": "Maximum Hausdorff offset within hairpin cores",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "simplify_tolerance_m",
+          "option": "--simplify-tolerance-m",
+          "options": [
+            "--simplify-tolerance-m"
+          ],
+          "default": 0.0,
+          "help": "Final Douglas-Peucker simplification is disabled by default in v0.5 to avoid reducing smooth curves to polylines",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "simplify_corridor_m",
+          "option": "--simplify-corridor-m",
+          "options": [
+            "--simplify-corridor-m"
+          ],
+          "default": 1.75,
+          "help": "Compatibility field; should match smooth-corridor-m",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "uturn_simplify_tolerance_m",
+          "option": "--uturn-simplify-tolerance-m",
+          "options": [
+            "--uturn-simplify-tolerance-m"
+          ],
+          "default": 0.0,
+          "help": "Hairpin Douglas-Peucker simplification is disabled by default in v0.5 to preserve continuous hairpin curves",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_smooth_sample_m",
+          "option": "--final-smooth-sample-m",
+          "options": [
+            "--final-smooth-sample-m"
+          ],
+          "default": 0.5,
+          "help": "Output sampling interval for final v0.5 whole-chain smoothing; 0.5m produces visually continuous curves",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_smooth_sigma_m",
+          "option": "--final-smooth-sigma-m",
+          "options": [
+            "--final-smooth-sigma-m"
+          ],
+          "default": 3.0,
+          "help": "Gaussian whole-chain smoothing scale for ordinary roads in v0.5; default 3m for strong smoothing",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_smooth_corridor_m",
+          "option": "--final-smooth-corridor-m",
+          "options": [
+            "--final-smooth-corridor-m"
+          ],
+          "default": 2.5,
+          "help": "Maximum geometric offset from the validated network for ordinary roads in v0.5",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_uturn_smooth_sigma_m",
+          "option": "--final-uturn-smooth-sigma-m",
+          "options": [
+            "--final-uturn-smooth-sigma-m"
+          ],
+          "default": 1.0,
+          "help": "Final hairpin smoothing scale in v0.5, more conservative than ordinary roads",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_uturn_smooth_corridor_m",
+          "option": "--final-uturn-smooth-corridor-m",
+          "options": [
+            "--final-uturn-smooth-corridor-m"
+          ],
+          "default": 0.8,
+          "help": "Maximum final hairpin smoothing offset in v0.5",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "final_smooth_min_sigma_m",
+          "option": "--final-smooth-min-sigma-m",
+          "options": [
+            "--final-smooth-min-sigma-m"
+          ],
+          "default": 0.3,
+          "help": "Minimum smoothing scale when adaptively weakening smoothing after corridor-validation failure",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_final_chain_smoothing",
+          "option": "--disable-final-chain-smoothing",
+          "options": [
+            "--disable-final-chain-smoothing"
+          ],
+          "default": false,
+          "help": "Disable final v0.5 whole-road-chain smoothing",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "baseline_corridor_m",
+          "option": "--baseline-corridor-m",
+          "options": [
+            "--baseline-corridor-m"
+          ],
+          "default": 1.75,
+          "help": "Approved ordinary-road smoothing corridor relative to the primary raster skeleton; audits add half a pixel diagonal only to compensate for pixel footprints, preserving the actual vector-offset limit",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "dem_sample_spacing_m",
+          "option": "--dem-sample-spacing-m",
+          "options": [
+            "--dem-sample-spacing-m"
+          ],
+          "default": 5.0,
+          "help": "",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--disable-polygon-loop-resolver",
+          "dest": "disable_polygon_loop_resolver",
+          "options": [
+            "--disable-polygon-loop-resolver"
+          ],
+          "default": false,
+          "help": "Disable arbitrary polygon-cycle resolution",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--polygon-loop-max-perimeter-m",
+          "dest": "polygon_loop_max_perimeter_m",
+          "options": [
+            "--polygon-loop-max-perimeter-m"
+          ],
+          "default": 180.0,
+          "help": "Maximum perimeter for arbitrary-shaped cycle resolution",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-max-span-m",
+          "dest": "polygon_loop_max_span_m",
+          "options": [
+            "--polygon-loop-max-span-m"
+          ],
+          "default": 60.0,
+          "help": "Maximum span for arbitrary-shaped cycle resolution",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-max-area-m2",
+          "dest": "polygon_loop_max_area_m2",
+          "options": [
+            "--polygon-loop-max-area-m2"
+          ],
+          "default": 1800.0,
+          "help": "Maximum area for arbitrary-shaped cycle resolution",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-force-perimeter-m",
+          "dest": "polygon_loop_force_perimeter_m",
+          "options": [
+            "--polygon-loop-force-perimeter-m"
+          ],
+          "default": 100.0,
+          "help": "Maximum cycle perimeter for forced handling at reasonable scales",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-force-span-m",
+          "dest": "polygon_loop_force_span_m",
+          "options": [
+            "--polygon-loop-force-span-m"
+          ],
+          "default": 35.0,
+          "help": "Maximum cycle span for forced handling at reasonable scales",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-force-area-m2",
+          "dest": "polygon_loop_force_area_m2",
+          "options": [
+            "--polygon-loop-force-area-m2"
+          ],
+          "default": 650.0,
+          "help": "Maximum cycle area for forced handling at reasonable scales",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-thin-p90-width-m",
+          "dest": "polygon_loop_thin_p90_width_m",
+          "options": [
+            "--polygon-loop-thin-p90-width-m"
+          ],
+          "default": 14.0,
+          "help": "P90 separation threshold between two branches of a two-gate polygon",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-thin-max-width-m",
+          "dest": "polygon_loop_thin_max_width_m",
+          "options": [
+            "--polygon-loop-thin-max-width-m"
+          ],
+          "default": 20.0,
+          "help": "Maximum separation threshold between two branches of a two-gate polygon",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-weak-branch-ratio",
+          "dest": "polygon_loop_weak_branch_ratio",
+          "options": [
+            "--polygon-loop-weak-branch-ratio"
+          ],
+          "default": 0.82,
+          "help": "Remove the weak branch when its evidence/strong-branch evidence is below this ratio",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--polygon-loop-rounds",
+          "dest": "polygon_loop_rounds",
+          "options": [
+            "--polygon-loop-rounds"
+          ],
+          "default": 12,
+          "help": "Maximum resolution rounds for arbitrary polygon cycles",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--disable-polygon-loop-force",
+          "dest": "disable_polygon_loop_force",
+          "options": [
+            "--disable-polygon-loop-force"
+          ],
+          "default": false,
+          "help": "Disable forced cycle removal at reasonable scales",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--disable-s4-track-gap-repair",
+          "dest": "disable_s4_track_gap_repair",
+          "options": [
+            "--disable-s4-track-gap-repair"
+          ],
+          "default": false,
+          "help": "Disable same-S4-track continuity gap repair",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--s4-track-gap-max-endpoint-distance-m",
+          "dest": "s4_track_gap_max_endpoint_distance_m",
+          "options": [
+            "--s4-track-gap-max-endpoint-distance-m"
+          ],
+          "default": 35.0,
+          "help": "Maximum straight-line gap distance continuously crossed by the same S4 track",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--s4-track-gap-max-path-m",
+          "dest": "s4_track_gap_max_path_m",
+          "options": [
+            "--s4-track-gap-max-path-m"
+          ],
+          "default": 50.0,
+          "help": "Maximum actual subpath length for same-S4-track gap repair",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--s4-track-gap-snap-m",
+          "dest": "s4_track_gap_snap_m",
+          "options": [
+            "--s4-track-gap-snap-m"
+          ],
+          "default": 6.0,
+          "help": "Maximum endpoint snap distance to adjusted S4 tracks",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--s4-track-gap-max-angle-deg",
+          "dest": "s4_track_gap_max_angle_deg",
+          "options": [
+            "--s4-track-gap-max-angle-deg"
+          ],
+          "default": 50.0,
+          "help": "Maximum endpoint directional deviation for same-S4-track gap repair",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--s4-track-gap-max-repairs",
+          "dest": "s4_track_gap_max_repairs",
+          "options": [
+            "--s4-track-gap-max-repairs"
+          ],
+          "default": 5000,
+          "help": "Maximum same-S4-track gap repairs",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--disable-force-direction-gap",
+          "dest": "disable_force_direction_gap",
+          "options": [
+            "--disable-force-direction-gap"
+          ],
+          "default": false,
+          "help": "Disable the final strong-direction forced gap repair stage",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--force-direction-gap-max-m",
+          "dest": "force_direction_gap_max_m",
+          "options": [
+            "--force-direction-gap-max-m"
+          ],
+          "default": 15.0,
+          "help": "Maximum strong-direction forced gap-repair distance without same-track evidence",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--force-direction-gap-max-angle-deg",
+          "dest": "force_direction_gap_max_angle_deg",
+          "options": [
+            "--force-direction-gap-max-angle-deg"
+          ],
+          "default": 20.0,
+          "help": "Maximum endpoint directional deviation for strong-direction gap repair",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--force-direction-gap-min-evidence-fraction",
+          "dest": "force_direction_gap_min_evidence_fraction",
+          "options": [
+            "--force-direction-gap-min-evidence-fraction"
+          ],
+          "default": 0.4,
+          "help": "Minimum evidence coverage for strong-direction gap repair",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--force-direction-gap-evidence-distance-m",
+          "dest": "force_direction_gap_evidence_distance_m",
+          "options": [
+            "--force-direction-gap-evidence-distance-m"
+          ],
+          "default": 10.0,
+          "help": "Distance evidence threshold for strong-direction gap repair",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--force-direction-gap-max-repairs",
+          "dest": "force_direction_gap_max_repairs",
+          "options": [
+            "--force-direction-gap-max-repairs"
+          ],
+          "default": 5000,
+          "help": "Maximum strong-direction gap repairs",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--disable-junction-repair",
+          "dest": "disable_junction_repair",
+          "options": [
+            "--disable-junction-repair"
+          ],
+          "default": false,
+          "help": "Disable junction topology repair",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true,
+          "value_type": "bool"
+        },
+        {
+          "option": "--junction-edge-snap-max-m",
+          "dest": "junction_edge_snap_max_m",
+          "options": [
+            "--junction-edge-snap-max-m"
+          ],
+          "default": 8.0,
+          "help": "Maximum snap distance from a disconnected branch endpoint to a nearby road edge",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-edge-node-merge-m",
+          "dest": "junction_edge_node_merge_m",
+          "options": [
+            "--junction-edge-node-merge-m"
+          ],
+          "default": 2.5,
+          "help": "Reuse a nearby existing node directly to avoid tiny edges",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-edge-max-angle-deg",
+          "dest": "junction_edge_max_angle_deg",
+          "options": [
+            "--junction-edge-max-angle-deg"
+          ],
+          "default": 65.0,
+          "help": "Maximum angle between the original endpoint road direction and the junction connector",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-min-evidence-fraction",
+          "dest": "junction_min_evidence_fraction",
+          "options": [
+            "--junction-min-evidence-fraction"
+          ],
+          "default": 0.25,
+          "help": "Minimum evidence coverage for endpoint-to-edge connectors",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-evidence-distance-m",
+          "dest": "junction_evidence_distance_m",
+          "options": [
+            "--junction-evidence-distance-m"
+          ],
+          "default": 10.0,
+          "help": "Distance evidence threshold for junction connectors",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-edge-rounds",
+          "dest": "junction_edge_rounds",
+          "options": [
+            "--junction-edge-rounds"
+          ],
+          "default": 4,
+          "help": "Endpoint-to-edge repair rounds",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-edge-max-repairs",
+          "dest": "junction_edge_max_repairs",
+          "options": [
+            "--junction-edge-max-repairs"
+          ],
+          "default": 5000,
+          "help": "Maximum endpoint-to-edge repairs",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-cluster-radius-m",
+          "dest": "junction_cluster_radius_m",
+          "options": [
+            "--junction-cluster-radius-m"
+          ],
+          "default": 8.0,
+          "help": "Disconnected-end clustering radius for X/Y junctions",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-cluster-center-search-m",
+          "dest": "junction_cluster_center_search_m",
+          "options": [
+            "--junction-cluster-center-search-m"
+          ],
+          "default": 4.0,
+          "help": "Local KDE/support search radius for the shared junction center",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-cluster-max-angle-deg",
+          "dest": "junction_cluster_max_angle_deg",
+          "options": [
+            "--junction-cluster-max-angle-deg"
+          ],
+          "default": 75.0,
+          "help": "Maximum directional deviation of disconnected ends toward the shared junction center",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-cluster-min-evidence-fraction",
+          "dest": "junction_cluster_min_evidence_fraction",
+          "options": [
+            "--junction-cluster-min-evidence-fraction"
+          ],
+          "default": 0.2,
+          "help": "Minimum evidence fraction for each connector arm at a shared junction",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-cluster-min-size",
+          "dest": "junction_cluster_min_size",
+          "options": [
+            "--junction-cluster-min-size"
+          ],
+          "default": 3,
+          "help": "Minimum valid disconnected ends for a shared hub; do not create a degree-2 hub for 2 ends",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-cluster-max-size",
+          "dest": "junction_cluster_max_size",
+          "options": [
+            "--junction-cluster-max-size"
+          ],
+          "default": 6,
+          "help": "Maximum disconnected ends at one shared junction",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-cluster-max-repairs",
+          "dest": "junction_cluster_max_repairs",
+          "options": [
+            "--junction-cluster-max-repairs"
+          ],
+          "default": 2000,
+          "help": "Maximum new connector arms at a shared junction",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--allow-polygon-loop-resolver",
+          "dest": "allow_polygon_loop_resolver",
+          "options": [
+            "--allow-polygon-loop-resolver"
+          ],
+          "default": false,
+          "help": "Explicitly enable legacy arbitrary polygon-cycle deletion; disabled by default in v0.5 to preserve real road loops",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--disable-cycle-closure",
+          "dest": "disable_cycle_closure",
+          "options": [
+            "--disable-cycle-closure"
+          ],
+          "default": false,
+          "help": "Disable evidence-constrained cycle-closing connectors within a connected component",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--cycle-closure-min-detour-ratio",
+          "dest": "cycle_closure_min_detour_ratio",
+          "options": [
+            "--cycle-closure-min-detour-ratio"
+          ],
+          "default": 1.8,
+          "help": "Minimum existing-detour/new-connector length ratio for same-component cycle-closing connections",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--cycle-closure-min-detour-excess-m",
+          "dest": "cycle_closure_min_detour_excess_m",
+          "options": [
+            "--cycle-closure-min-detour-excess-m"
+          ],
+          "default": 8.0,
+          "help": "Minimum excess existing-detour length in m for same-component cycle-closing connections",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--disable-component-stitching",
+          "dest": "disable_component_stitching",
+          "options": [
+            "--disable-component-stitching"
+          ],
+          "default": false,
+          "help": "Disable local fragmented-network component stitching",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--component-stitch-max-m",
+          "dest": "component_stitch_max_m",
+          "options": [
+            "--component-stitch-max-m"
+          ],
+          "default": 28.0,
+          "help": "Maximum endpoint distance for automatic local fragmented-component stitching",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-max-angle-deg",
+          "dest": "component_stitch_max_angle_deg",
+          "options": [
+            "--component-stitch-max-angle-deg"
+          ],
+          "default": 35.0,
+          "help": "Maximum directional deviation for short-distance component stitching",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-min-evidence-fraction",
+          "dest": "component_stitch_min_evidence_fraction",
+          "options": [
+            "--component-stitch-min-evidence-fraction"
+          ],
+          "default": 0.35,
+          "help": "Minimum continuous evidence fraction for short-distance component stitching",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-long-threshold-m",
+          "dest": "component_stitch_long_threshold_m",
+          "options": [
+            "--component-stitch-long-threshold-m"
+          ],
+          "default": 15.0,
+          "help": "Distance beyond which stricter long-gap thresholds apply",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-long-max-angle-deg",
+          "dest": "component_stitch_long_max_angle_deg",
+          "options": [
+            "--component-stitch-long-max-angle-deg"
+          ],
+          "default": 22.5,
+          "help": "Maximum directional deviation for long-distance component stitching",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-long-min-evidence-fraction",
+          "dest": "component_stitch_long_min_evidence_fraction",
+          "options": [
+            "--component-stitch-long-min-evidence-fraction"
+          ],
+          "default": 0.65,
+          "help": "Minimum continuous evidence fraction for long-distance component stitching",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-evidence-distance-m",
+          "dest": "component_stitch_evidence_distance_m",
+          "options": [
+            "--component-stitch-evidence-distance-m"
+          ],
+          "default": 10.0,
+          "help": "Track-distance evidence threshold for component stitching",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--component-stitch-max-repairs",
+          "dest": "component_stitch_max_repairs",
+          "options": [
+            "--component-stitch-max-repairs"
+          ],
+          "default": 10000,
+          "help": "Maximum new component-stitching connectors",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--isolated-component-hard-max-m",
+          "dest": "isolated_component_hard_max_m",
+          "options": [
+            "--isolated-component-hard-max-m"
+          ],
+          "default": 25.0,
+          "help": "Remove fully isolated components with total length at most this value, including primary components",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--isolated-component-weak-max-m",
+          "dest": "isolated_component_weak_max_m",
+          "options": [
+            "--isolated-component-weak-max-m"
+          ],
+          "default": 60.0,
+          "help": "Maximum removable isolated-component length with no track support and low confidence",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--isolated-component-weak-max-tracks",
+          "dest": "isolated_component_weak_max_tracks",
+          "options": [
+            "--isolated-component-weak-max-tracks"
+          ],
+          "default": 0,
+          "help": "Maximum matched tracks allowed for weak isolated components",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--isolated-component-weak-max-confidence",
+          "dest": "isolated_component_weak_max_confidence",
+          "options": [
+            "--isolated-component-weak-max-confidence"
+          ],
+          "default": 0.42,
+          "help": "Maximum edge confidence for weak isolated components",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-spur-hard-max-m",
+          "dest": "junction_spur_hard_max_m",
+          "options": [
+            "--junction-spur-hard-max-m"
+          ],
+          "default": 6.0,
+          "help": "Direct-removal length for extremely short junction-spur chains",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-spur-weak-max-m",
+          "dest": "junction_spur_weak_max_m",
+          "options": [
+            "--junction-spur-weak-max-m"
+          ],
+          "default": 22.0,
+          "help": "Maximum removable length for weak junction spurs with no track support",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-spur-weak-max-tracks",
+          "dest": "junction_spur_weak_max_tracks",
+          "options": [
+            "--junction-spur-weak-max-tracks"
+          ],
+          "default": 0,
+          "help": "Maximum matched tracks for weak junction spurs",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--junction-spur-weak-max-confidence",
+          "dest": "junction_spur_weak_max_confidence",
+          "options": [
+            "--junction-spur-weak-max-confidence"
+          ],
+          "default": 0.4,
+          "help": "Maximum edge confidence for weak junction spurs",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--junction-spur-rounds",
+          "dest": "junction_spur_rounds",
+          "options": [
+            "--junction-spur-rounds"
+          ],
+          "default": 4,
+          "help": "Iterative junction-spur deletion rounds",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "mainroad_only_final_prune",
+          "option": "--mainroad-only-final-prune",
+          "options": [
+            "--mainroad-only-final-prune"
+          ],
+          "default": false,
+          "help": "Final strict primary-road cleanup: remove short low-track branches and form a maximum-evidence acyclic forest",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "option": "--mainroad-short-max-m",
+          "dest": "mainroad_short_max_m",
+          "options": [
+            "--mainroad-short-max-m"
+          ],
+          "default": 300.0,
+          "help": "Maximum removable length of single-track short branches/isolated components in strict primary-road mode",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "option": "--mainroad-short-max-tracks",
+          "dest": "mainroad_short_max_tracks",
+          "options": [
+            "--mainroad-short-max-tracks"
+          ],
+          "default": 1,
+          "help": "Maximum independent tracks counted as low support in strict primary-road mode",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--mainroad-short-prune-rounds",
+          "dest": "mainroad_short_prune_rounds",
+          "options": [
+            "--mainroad-short-prune-rounds"
+          ],
+          "default": 20,
+          "help": "Short-branch deletion rounds in strict primary-road mode",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "option": "--mainroad-force-leaf-max-m",
+          "dest": "mainroad_force_leaf_max_m",
+          "options": [
+            "--mainroad-force-leaf-max-m"
+          ],
+          "default": 0.0,
+          "help": "Maximum leaf-branch length forcibly removed in strict primary-road mode regardless of repair protection or track support; 0 disables",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "disable_raw_track_gap_repair",
+          "option": "--disable-raw-track-gap-repair",
+          "options": [
+            "--disable-raw-track-gap-repair"
+          ],
+          "default": false,
+          "help": "Disable raw-track topology-witness gap repair (v0.5)",
+          "required": false,
+          "kind": "bool_flag",
+          "flag_value": true
+        },
+        {
+          "dest": "raw_track_max_step_m",
+          "option": "--raw-track-max-step-m",
+          "options": [
+            "--raw-track-max-step-m"
+          ],
+          "default": 0.0,
+          "help": "Maximum adjacent step for raw-track witnesses; set 0 in vehicle mode to remove the distance limit",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_max_speed_mps",
+          "option": "--raw-track-max-speed-mps",
+          "options": [
+            "--raw-track-max-speed-mps"
+          ],
+          "default": 0.0,
+          "help": "Maximum plausible raw-track witness speed; set 0 in vehicle mode to remove the speed limit",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_max_time_gap_s",
+          "option": "--raw-track-max-time-gap-s",
+          "options": [
+            "--raw-track-max-time-gap-s"
+          ],
+          "default": 1800.0,
+          "help": "Maximum consecutive time gap for raw-track witnesses",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_isolated_spike_bridge_m",
+          "option": "--raw-track-isolated-spike-bridge-m",
+          "options": [
+            "--raw-track-isolated-spike-bridge-m"
+          ],
+          "default": 80.0,
+          "help": "Maximum A-C distance for restoring raw-track continuity by skipping one obvious GPS spike",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_max_endpoint_distance_m",
+          "option": "--raw-track-gap-max-endpoint-distance-m",
+          "options": [
+            "--raw-track-gap-max-endpoint-distance-m"
+          ],
+          "default": 40.0,
+          "help": "Maximum straight-line endpoint-to-endpoint distance for same-raw-track witnesses",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_max_path_m",
+          "option": "--raw-track-gap-max-path-m",
+          "options": [
+            "--raw-track-gap-max-path-m"
+          ],
+          "default": 65.0,
+          "help": "Maximum actual subpath length for raw-track witnesses",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_snap_m",
+          "option": "--raw-track-gap-snap-m",
+          "options": [
+            "--raw-track-gap-snap-m"
+          ],
+          "default": 7.0,
+          "help": "Maximum network-endpoint snap distance to raw-track witnesses",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_max_angle_deg",
+          "option": "--raw-track-gap-max-angle-deg",
+          "options": [
+            "--raw-track-gap-max-angle-deg"
+          ],
+          "default": 65.0,
+          "help": "Maximum angle between a raw-track witness gap repair and the roads at both ends",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_min_witness_tracks",
+          "option": "--raw-track-gap-min-witness-tracks",
+          "options": [
+            "--raw-track-gap-min-witness-tracks"
+          ],
+          "default": 1,
+          "help": "Minimum independent raw tracks continuously witnessing a gap repair",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "raw_track_gap_max_path_ratio",
+          "option": "--raw-track-gap-max-path-ratio",
+          "options": [
+            "--raw-track-gap-max-path-ratio"
+          ],
+          "default": 3.0,
+          "help": "Maximum raw-witness subpath/gap straight-line length ratio",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_corridor_m",
+          "option": "--raw-track-gap-corridor-m",
+          "options": [
+            "--raw-track-gap-corridor-m"
+          ],
+          "default": 10.0,
+          "help": "Maximum P90 deviation of the raw-witness subpath from the candidate connector",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_track_gap_max_repairs",
+          "option": "--raw-track-gap-max-repairs",
+          "options": [
+            "--raw-track-gap-max-repairs"
+          ],
+          "default": 5000,
+          "help": "Maximum raw-track witness gap repairs",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "raw_witness_relaxed_max_angle_deg",
+          "option": "--raw-witness-relaxed-max-angle-deg",
+          "options": [
+            "--raw-witness-relaxed-max-angle-deg"
+          ],
+          "default": 75.0,
+          "help": "Maximum approach angle for strong raw-track witnesses used in endpoint-to-edge repairs",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_bridge_max_m",
+          "option": "--parallel-bridge-max-m",
+          "options": [
+            "--parallel-bridge-max-m"
+          ],
+          "default": 35.0,
+          "help": "Maximum connector length for auditing false transverse bridges between parallel roads",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_bridge_axis_max_angle_deg",
+          "option": "--parallel-bridge-axis-max-angle-deg",
+          "options": [
+            "--parallel-bridge-axis-max-angle-deg"
+          ],
+          "default": 15.0,
+          "help": "Treat roads on both sides as locally parallel below this axial angle",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_bridge_min_cross_angle_deg",
+          "option": "--parallel-bridge-min-cross-angle-deg",
+          "options": [
+            "--parallel-bridge-min-cross-angle-deg"
+          ],
+          "default": 55.0,
+          "help": "Treat a connector as a transverse bridge when its angle to both parallel roads exceeds this value",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "parallel_bridge_min_side_tracks",
+          "option": "--parallel-bridge-min-side-tracks",
+          "options": [
+            "--parallel-bridge-min-side-tracks"
+          ],
+          "default": 1,
+          "help": "Count missing crossing witnesses as negative evidence only when raw tracks occupy both parallel roads separately",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "cycle_route_family_min_tracks",
+          "option": "--cycle-route-family-min-tracks",
+          "options": [
+            "--cycle-route-family-min-tracks"
+          ],
+          "default": 2,
+          "help": "Minimum independent raw tracks completing 0/1/multi-gate cycles to retain those loops",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "raw_coverage_max_endpoint_distance_m",
+          "option": "--raw-coverage-max-endpoint-distance-m",
+          "options": [
+            "--raw-coverage-max-endpoint-distance-m"
+          ],
+          "default": 90.0,
+          "help": "Maximum straight-line gap-endpoint distance restorable by the final raw-track coverage audit",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_coverage_max_path_m",
+          "option": "--raw-coverage-max-path-m",
+          "options": [
+            "--raw-coverage-max-path-m"
+          ],
+          "default": 140.0,
+          "help": "Maximum actual track-subpath length allowed by the final raw-track coverage audit",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_coverage_min_witness_tracks",
+          "option": "--raw-coverage-min-witness-tracks",
+          "options": [
+            "--raw-coverage-min-witness-tracks"
+          ],
+          "default": 2,
+          "help": "Minimum independent raw-track witnesses for final coverage restoration",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "raw_coverage_max_path_ratio",
+          "option": "--raw-coverage-max-path-ratio",
+          "options": [
+            "--raw-coverage-max-path-ratio"
+          ],
+          "default": 3.5,
+          "help": "Maximum actual track-subpath/straight-line length ratio for final coverage restoration",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_coverage_max_angle_deg",
+          "option": "--raw-coverage-max-angle-deg",
+          "options": [
+            "--raw-coverage-max-angle-deg"
+          ],
+          "default": 70.0,
+          "help": "Maximum endpoint tangent angle allowed for final coverage restoration",
+          "required": false,
+          "kind": "value",
+          "value_type": "float"
+        },
+        {
+          "dest": "raw_coverage_max_repairs",
+          "option": "--raw-coverage-max-repairs",
+          "options": [
+            "--raw-coverage-max-repairs"
+          ],
+          "default": 2000,
+          "help": "Maximum final raw-track coverage-restoration connectors",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        },
+        {
+          "dest": "thin_duplicate_min_independent_tracks",
+          "option": "--thin-duplicate-min-independent-tracks",
+          "options": [
+            "--thin-duplicate-min-independent-tracks"
+          ],
+          "default": 3,
+          "help": "Minimum raw tracks per independent route in long narrow duplicate-corridor loops; otherwise collapse to one line",
+          "required": false,
+          "kind": "value",
+          "value_type": "int"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "cell_size": 2,
+  "mask_threshold": 100,
+  "gaussian_blur": 17,
+  "voronoi_sampling_interval": 10,
+  "min_direction_count": 10
+}
